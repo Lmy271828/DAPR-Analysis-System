@@ -1,0 +1,31 @@
+# ComfyUI 目录
+/ComfyUI/
+
+# DAPR-agent 输出和会话
+/DAPR-agent/outputs/
+/DAPR-agent/sessions/
+
+# DAPR-doodle 目录
+/DAPR-doodle/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 日志文件
+*.log
+
+# 环境变量
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 操作系统
+.DS_Store
+Thumbs.db

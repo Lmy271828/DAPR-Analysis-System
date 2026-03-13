@@ -1,0 +1,1705 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAPR 心理咨询师监控面板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: #16213e;
+            padding: 20px 30px;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            color: #e94560;
+        }
+        
+        .header .subtitle {
+            color: #888;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .container {
+            display: flex;
+            height: calc(100vh - 80px);
+        }
+        
+        /* 左侧会话列表 */
+        .sidebar {
+            width: 300px;
+            background: #16213e;
+            border-right: 1px solid #0f3460;
+            overflow-y: auto;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        .sidebar-header h2 {
+            font-size: 1rem;
+            color: #aaa;
+        }
+        
+        .session-list {
+            padding: 10px;
+        }
+        
+        .session-item {
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .session-item:hover {
+            border-color: #e94560;
+        }
+        
+        .session-item.active {
+            background: #0f3460;
+            border-color: #e94560;
+        }
+        
+        .session-id {
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        
+        .session-status {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .status-guidance { background: #6c757d; }
+        .status-permission { background: #ffc107; color: #000; }
+        .status-drawing { background: #17a2b8; }
+        .status-analyzing { background: #6610f2; }
+        .status-questioning { background: #fd7e14; }
+        .status-generating { background: #e83e8c; }
+        .status-selecting { background: #20c997; }
+        .status-final { background: #007bff; }
+        .status-completed { background: #28a745; }
+        
+        /* 右侧日志区域 */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .log-toolbar {
+            background: #16213e;
+            padding: 15px 20px;
+            border-bottom: 1px solid #0f3460;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .log-toolbar button {
+            padding: 8px 16px;
+            background: #0f3460;
+            border: 1px solid #1a1a2e;
+            color: #eee;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        
+        .log-toolbar button:hover {
+            background: #e94560;
+        }
+        
+        .log-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .log-entry {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        .log-time {
+            font-family: monospace;
+            color: #888;
+            font-size: 0.85rem;
+        }
+        
+        .log-stage {
+            background: #e94560;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .log-session {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .log-section {
+            margin-bottom: 15px;
+        }
+        
+        .log-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .log-section-title {
+            font-size: 0.85rem;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        
+        .log-content {
+            background: #1a1a2e;
+            border-radius: 4px;
+            padding: 12px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .log-content pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .log-content.readable {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+        }
+        
+        .log-content.readable p {
+            margin: 8px 0;
+        }
+        
+        .log-content.readable strong {
+            color: #e94560;
+        }
+        
+        .log-content.readable ul,
+        .log-content.readable ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        
+        .log-content.readable li {
+            margin: 4px 0;
+        }
+        
+        .log-content.readable em {
+            color: #888;
+            font-style: italic;
+        }
+        
+        .log-content img {
+            max-width: 300px;
+            max-height: 200px;
+            border-radius: 4px;
+        }
+        
+        /* 过滤标签 */
+        .filter-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-tag {
+            padding: 4px 12px;
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        
+        .filter-tag.active {
+            background: #e94560;
+            border-color: #e94560;
+        }
+        
+        /* 详情面板 */
+        .detail-panel {
+            width: 400px;
+            background: #16213e;
+            border-left: 1px solid #0f3460;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .detail-panel.active {
+            display: block;
+        }
+        
+        .detail-header {
+            padding: 20px;
+            border-bottom: 1px solid #0f3460;
+        }
+        
+        .detail-content {
+            padding: 20px;
+        }
+        
+        .detail-section {
+            margin-bottom: 25px;
+        }
+        
+        .detail-section h3 {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        
+        .detail-item {
+            background: #1a1a2e;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        
+        .detail-label {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        
+        .detail-value {
+            font-size: 0.95rem;
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+        
+        /* 连接状态 */
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #16213e;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #28a745;
+        }
+        
+        .status-dot.disconnected {
+            background: #dc3545;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 1200px) {
+            .sidebar {
+                width: 250px;
+            }
+            .detail-panel {
+                width: 350px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                height: 200px;
+            }
+            .detail-panel {
+                width: 100%;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 1000;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🧠 DAPR 心理咨询师监控面板</h1>
+        <div class="subtitle">实时监控受试者绘画过程与AI分析结果</div>
+    </div>
+    
+    <div class="connection-status">
+        <span class="status-dot" id="ws-status"></span>
+        <span id="ws-text">已连接</span>
+    </div>
+    
+    <div class="container">
+        <!-- 左侧会话列表 -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>会话列表</h2>
+                <button onclick="showHistoryModal()" class="btn-history" style="margin-top: 10px; padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; width: 100%;">
+                    📂 导入历史会话
+                </button>
+            </div>
+            <div class="session-list" id="session-list">
+                <!-- 动态生成 -->
+            </div>
+        </div>
+        
+        <!-- 历史会话选择弹窗 -->
+        <div id="history-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; overflow-y: auto;">
+            <div class="modal-content" style="background: #1a1a2e; max-width: 900px; margin: 50px auto; border-radius: 12px; overflow: hidden;">
+                <div class="modal-header" style="background: #16213e; padding: 20px; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: center;">
+                    <h2>📂 选择历史会话进行分析</h2>
+                    <button onclick="closeHistoryModal()" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+                <div class="modal-body" style="padding: 20px; max-height: 70vh; overflow-y: auto;">
+                    <div id="history-loading" style="text-align: center; padding: 40px;">
+                        <div class="spinner" style="width: 40px; height: 40px; border: 3px solid #0f3460; border-top-color: #e94560; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
+                        <p>正在加载历史会话...</p>
+                    </div>
+                    <div id="history-list" style="display: none;">
+                        <!-- 历史会话列表 -->
+                    </div>
+                    <div id="history-empty" style="display: none; text-align: center; padding: 40px; color: #888;">
+                        <div style="font-size: 3rem; margin-bottom: 15px;">📁</div>
+                        <p>暂无历史会话</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 中间日志区域 -->
+        <div class="main-content">
+            <div class="log-toolbar">
+                <button onclick="refreshSessions()">🔄 刷新</button>
+                <button onclick="clearLogs()">🗑️ 清空</button>
+                <div class="filter-tags">
+                    <span class="filter-tag active" data-filter="all">全部</span>
+                    <span class="filter-tag" data-filter="llm">LLM</span>
+                    <span class="filter-tag" data-filter="flux2">FLUX2</span>
+                </div>
+            </div>
+            <div class="log-container" id="log-container">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📋</div>
+                    <p>等待新的日志...</p>
+                    <p style="font-size: 0.85rem; color: #666; margin-top: 10px;">
+                        提示：需要受试者在 <a href="/" target="_blank">localhost:8000</a> 完成绘画才能看到日志
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧详情面板 -->
+        <div class="detail-panel" id="detail-panel">
+            <div class="detail-header">
+                <h2>会话详情</h2>
+            </div>
+            <div class="detail-content" id="detail-content">
+                <!-- 动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            ws: null,
+            sessions: [],
+            logs: [],
+            selectedSession: null,
+            filter: 'all'
+        };
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            connectWebSocket();
+            bindEvents();
+        });
+
+        // 连接 WebSocket
+        function connectWebSocket() {
+            const wsUrl = `ws://${window.location.host}/ws/therapist`;
+            state.ws = new WebSocket(wsUrl);
+
+            state.ws.onopen = () => {
+                console.log('WebSocket 已连接');
+                updateConnectionStatus(true);
+                // 请求会话列表
+                state.ws.send(JSON.stringify({ type: 'list_sessions' }));
+            };
+
+            state.ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                handleMessage(message);
+            };
+
+            state.ws.onclose = () => {
+                console.log('WebSocket 已断开');
+                updateConnectionStatus(false);
+                // 重连
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            state.ws.onerror = (error) => {
+                console.error('WebSocket 错误:', error);
+                updateConnectionStatus(false);
+            };
+        }
+
+        // 更新连接状态
+        function updateConnectionStatus(connected) {
+            const dot = document.getElementById('ws-status');
+            const text = document.getElementById('ws-text');
+            dot.classList.toggle('disconnected', !connected);
+            text.textContent = connected ? '已连接' : '已断开';
+        }
+
+        // 流式分析状态
+        const streamState = {
+            activeStreams: new Map(), // sessionId -> {chunks, element}
+        };
+
+        // 处理消息
+        function handleMessage(message) {
+            switch (message.type) {
+                case 'sessions_list':
+                    updateSessionList(message.data);
+                    break;
+                case 'log':
+                    handleLogMessage(message.data);
+                    break;
+            }
+        }
+
+        // 处理日志消息（支持流式）
+        function handleLogMessage(log) {
+            // 检查是否是流式分析的日志
+            if (log.stage === 'analysis_stream_chunk') {
+                handleStreamChunk(log);
+            } else if (log.stage === 'analysis_stream_complete') {
+                handleStreamComplete(log);
+            } else if (log.stage === 'analysis_stream_start') {
+                handleStreamStart(log);
+            } else {
+                addLog(log);
+            }
+        }
+
+        // 开始流式分析
+        function handleStreamStart(log) {
+            const sessionId = log.session_id;
+            console.log(`[Stream] 开始流式分析: ${sessionId}`);
+            
+            // 创建或获取流式显示元素
+            let streamEntry = streamState.activeStreams.get(sessionId);
+            if (!streamEntry) {
+                streamEntry = {
+                    chunks: [],
+                    element: createStreamLogElement(log),
+                    startTime: Date.now()
+                };
+                streamState.activeStreams.set(sessionId, streamEntry);
+            }
+        }
+
+        // 处理流式数据块
+        function handleStreamChunk(log) {
+            const sessionId = log.session_id;
+            const output = log.llm_output || {};
+            const chunk = output.chunk || '';
+            const speed = output.speed || '0.00 chars/s';
+            
+            let streamEntry = streamState.activeStreams.get(sessionId);
+            if (!streamEntry) {
+                // 如果没有开始记录，创建一个
+                handleStreamStart(log);
+                streamEntry = streamState.activeStreams.get(sessionId);
+            }
+            
+            streamEntry.chunks.push(chunk);
+            
+            // 更新显示
+            const fullText = streamEntry.chunks.join('');
+            updateStreamDisplay(streamEntry.element, fullText, speed, output.token_count || fullText.length);
+        }
+
+        // 流式分析完成
+        function handleStreamComplete(log) {
+            const sessionId = log.session_id;
+            const output = log.llm_output || {};
+            
+            console.log(`[Stream] 流式分析完成: ${sessionId}`);  // 统计信息只在控制台显示，不在UI显示
+            
+            const streamEntry = streamState.activeStreams.get(sessionId);
+            if (streamEntry) {
+                // 标记为完成
+                markStreamComplete(streamEntry.element, output);
+                streamState.activeStreams.delete(sessionId);
+            }
+            
+            // 同时作为普通日志添加
+            addLog(log);
+        }
+
+        // 创建流式日志元素
+        function createStreamLogElement(log) {
+            const container = document.getElementById('log-container');
+            
+            const entry = document.createElement('div');
+            entry.className = 'log-entry streaming';
+            entry.dataset.sessionId = log.session_id;
+            entry.innerHTML = `
+                <div class="log-header">
+                    <div>
+                        <span class="log-session">${log.session_id.substring(0, 8)}...</span>
+                        <span class="log-time">${new Date(log.timestamp).toLocaleString()}</span>
+                    </div>
+                    <span class="log-stage" style="background: #6610f2;">🔴 分析中...</span>
+                </div>
+                <div class="log-section">
+                    <div class="log-section-title">⚡ 实时生成中</div>
+                    <div class="stream-stats" style="font-size: 0.85rem; color: #888; margin-bottom: 10px;">
+                        速度: <span class="stream-speed">0.00 chars/s</span> | 
+                        字符数: <span class="stream-tokens">0</span>
+                    </div>
+                    <div class="stream-content log-content" style="background: #0f3460; min-height: 100px; max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-family: monospace; font-size: 0.85rem; line-height: 1.5;">
+                        等待输出...
+                    </div>
+                </div>
+            `;
+            
+            // 插入到日志容器顶部
+            const emptyState = container.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+            container.insertBefore(entry, container.firstChild);
+            
+            return entry;
+        }
+
+        // 更新流式显示
+        function updateStreamDisplay(element, text, speed, tokenCount) {
+            if (!element) return;
+            
+            const contentEl = element.querySelector('.stream-content');
+            const speedEl = element.querySelector('.stream-speed');
+            const tokenEl = element.querySelector('.stream-tokens');
+            
+            if (contentEl) {
+                // 显示最近1000个字符，避免过长
+                const displayText = text.slice(-1000);
+                contentEl.textContent = displayText;
+                // 自动滚动到底部
+                contentEl.scrollTop = contentEl.scrollHeight;
+            }
+            if (speedEl) speedEl.textContent = speed;
+            if (tokenEl) tokenEl.textContent = tokenCount;
+        }
+
+        // 标记流式完成
+        function markStreamComplete(element, output) {
+            if (!element) return;
+            
+            const stageEl = element.querySelector('.log-stage');
+            const statsEl = element.querySelector('.stream-stats');
+            
+            if (stageEl) {
+                stageEl.textContent = '✅ 分析完成';
+                stageEl.style.background = '#28a745';
+            }
+            if (statsEl) {
+                statsEl.innerHTML = `
+                    <strong>分析完成</strong>  // 统计信息已在终端记录
+                `;
+            }
+            
+            element.classList.remove('streaming');
+            element.classList.add('stream-complete');
+        }
+
+        // 绑定事件
+        function bindEvents() {
+            // 过滤标签
+            document.querySelectorAll('.filter-tag').forEach(tag => {
+                tag.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
+                    tag.classList.add('active');
+                    state.filter = tag.dataset.filter;
+                    renderLogs();
+                });
+            });
+        }
+
+        // 更新会话列表
+        function updateSessionList(sessions) {
+            state.sessions = sessions;
+            const container = document.getElementById('session-list');
+            
+            if (sessions.length === 0) {
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">暂无会话</div>';
+                return;
+            }
+            
+            container.innerHTML = sessions.map(session => `
+                <div class="session-item ${session.id === state.selectedSession ? 'active' : ''}" 
+                     data-id="${session.id}"
+                     onclick="selectSession('${session.id}')">
+                    <div class="session-id">${session.id.substring(0, 8)}...</div>
+                    <span class="session-status status-${session.status}">${session.status}</span>
+                    <div style="margin-top: 8px; font-size: 0.8rem; color: #666;">
+                        ${new Date(session.created_at).toLocaleString()}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 选择会话
+        function selectSession(sessionId) {
+            state.selectedSession = sessionId;
+            
+            // 更新UI
+            document.querySelectorAll('.session-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.id === sessionId);
+            });
+            
+            // 显示详情面板
+            document.getElementById('detail-panel').classList.add('active');
+            loadSessionDetail(sessionId);
+        }
+
+        // 加载会话详情
+        async function loadSessionDetail(sessionId) {
+            try {
+                const response = await fetch(`/api/session/${sessionId}`);
+                const session = await response.json();
+                renderSessionDetail(session);
+            } catch (error) {
+                console.error('加载会话详情失败:', error);
+            }
+        }
+
+        // 渲染会话详情
+        function renderSessionDetail(session) {
+            const container = document.getElementById('detail-content');
+            
+            container.innerHTML = `
+                <div class="detail-section">
+                    <h3>基本信息</h3>
+                    <div class="detail-item">
+                        <div class="detail-label">会话ID</div>
+                        <div class="detail-value">${session.id}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">状态</div>
+                        <div class="detail-value">${session.status}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">创建时间</div>
+                        <div class="detail-value">${new Date(session.created_at).toLocaleString()}</div>
+                    </div>
+                    ${session.age_group ? `
+                    <div class="detail-item">
+                        <div class="detail-label">年龄段</div>
+                        <div class="detail-value">${session.age_group}</div>
+                    </div>
+                    ` : ''}
+                    ${session.gender ? `
+                    <div class="detail-item">
+                        <div class="detail-label">性别</div>
+                        <div class="detail-value">${session.gender}</div>
+                    </div>
+                    ` : ''}
+                </div>
+                
+                ${session.drawing_image ? `
+                <div class="detail-section">
+                    <h3>绘画作品</h3>
+                    <div class="detail-item">
+                        <img src="/api/image/${session.id}/drawing.png" style="max-width: 100%; border-radius: 4px;">
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${session.initial_analysis ? `
+                <div class="detail-section">
+                    <h3>初步分析</h3>
+                    <div class="detail-item">
+                        <div class="detail-label">分析摘要</div>
+                        <div class="detail-value">${session.initial_analysis.analysis_summary || '无'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">问题</div>
+                        <div class="detail-value">${(session.questions_asked || []).map(q => q.question).join('<br>')}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">猜想</div>
+                        <div class="detail-value">
+                            ${(session.hypotheses || []).map(h => `• ${h.description} (${h.confidence})`).join('<br>')}
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+                
+                ${session.user_answers && session.user_answers.length > 0 ? `
+                <div class="detail-section">
+                    <h3>用户回答</h3>
+                    ${session.user_answers.map((ans, i) => `
+                    <div class="detail-item">
+                        <div class="detail-label">问题 ${i + 1}</div>
+                        <div class="detail-value">${ans}</div>
+                    </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+                
+                ${session.generated_images && session.generated_images.length > 0 ? `
+                <div class="detail-section">
+                    <h3>生成的图像</h3>
+                    ${session.generated_images.map(img => `
+                    <div class="detail-item">
+                        <div class="detail-label">${img.name}</div>
+                        <img src="${img.url || img.filepath}" style="max-width: 100%; border-radius: 4px; margin-top: 8px;">
+                        <div style="margin-top: 8px; font-size: 0.85rem; color: #888;">${img.description}</div>
+                    </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+                
+                ${session.final_analysis ? `
+                <div class="detail-section">
+                    <h3>最终分析</h3>
+                    <div class="detail-item">
+                        <div class="detail-label">总结</div>
+                        <div class="detail-value">${session.final_analysis.summary || '无'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">压力水平</div>
+                        <div class="detail-value">${session.final_analysis.stress_level || '未评估'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">应对方式</div>
+                        <div class="detail-value">${session.final_analysis.coping_style || '未评估'}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">情绪状态</div>
+                        <div class="detail-value">${session.final_analysis.emotional_state || '未评估'}</div>
+                    </div>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        // 添加日志
+        function addLog(log) {
+            state.logs.unshift(log);
+            
+            // 限制日志数量
+            if (state.logs.length > 100) {
+                state.logs = state.logs.slice(0, 100);
+            }
+            
+            renderLogs();
+        }
+
+        // 辅助函数：解码转义字符（双重解码，处理LLM返回的转义JSON）
+        function decodeEscapedChars(str) {
+            if (typeof str !== 'string') return str;
+            
+            // 处理各种转义序列
+            return str
+                .split('\\n').join('\n')
+                .split('\\t').join('\t')
+                .split('\\"').join('"')
+                .split("\\'").join("'")
+                .split('\\\\').join('\\');
+        }
+
+        // 辅助函数：格式化分析结果（适配新格式，支持Thinking和Instruct模型，兼容中英文字段）
+        function formatAnalysisResult(data) {
+            let html = '';
+            
+            // 调试信息
+            console.log('[formatAnalysisResult] input data:', data);
+            
+            // 检查数据有效性
+            if (!data || typeof data !== 'object') {
+                console.error('[formatAnalysisResult] Invalid data:', data);
+                return '<p style="color:#ff6b6b;">⚠️ 数据格式错误：' + JSON.stringify(data).slice(0, 200) + '</p>';
+            }
+            
+            // 检查是否为Thinking模型（有think字段）
+            const isThinkingModel = data.think && typeof data.think === 'string';
+            
+            // Thinking模型：显示思考过程（可折叠）
+            if (isThinkingModel) {
+                html += `
+                    <div style="margin-bottom:15px;">
+                        <details style="background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;overflow:hidden;">
+                            <summary style="padding:12px 15px;cursor:pointer;background:#16213e;color:#ffc107;font-size:0.95rem;display:flex;align-items:center;gap:8px;">
+                                <span>💭</span>
+                                <span><strong>查看模型思考过程</strong></span>
+                                <span style="margin-left:auto;font-size:0.8rem;color:#888;">点击展开 ▼</span>
+                            </summary>
+                            <div style="padding:15px;border-top:1px solid #0f3460;">
+                                <pre style="margin:0;color:#aaa;font-size:0.85rem;line-height:1.6;white-space:pre-wrap;max-height:400px;overflow-y:auto;">${decodeEscapedChars(data.think)}</pre>
+                            </div>
+                        </details>
+                    </div>
+                `;
+            }
+            
+            // 适配新的 analysis 结构（支持中英文键名）
+            const analysis = data.analysis || data;
+            
+            // 获取字段值的辅助函数（支持中英文键名）
+            function getField(obj, enKey, cnKey) {
+                return obj[enKey] || obj[cnKey] || null;
+            }
+            
+            // 绘画特征分析（支持中英文键名）
+            const drawingFeatures = getField(analysis, 'drawing_features', '绘画特征分析') || 
+                                   getField(analysis, 'drawingFeatures', '绘画特征');
+            if (drawingFeatures) {
+                const df = drawingFeatures;
+                html += `
+                    <div style="background:#16213e;padding:12px;border-radius:6px;margin-bottom:10px;">
+                        <p style="margin:0 0 10px 0;color:#e94560;font-size:1rem;"><strong>🎨 绘画特征分析</strong></p>
+                        ${(getField(df, 'person_size_and_position', '人物大小与位置')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">人物大小与位置</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(df, 'person_size_and_position', '人物大小与位置'))}</p></div>` : ''}
+                        ${(getField(df, 'line_quality', '线条特征')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">线条特征</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(df, 'line_quality', '线条特征'))}</p></div>` : ''}
+                        ${(getField(df, 'rain_representation', '雨的描绘')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">雨的描绘</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(df, 'rain_representation', '雨的描绘'))}</p></div>` : ''}
+                        ${(getField(df, 'defensive_objects', '防御/遮蔽物')) ? `<div><span style="color:#888;font-size:0.85rem;">防御/遮蔽物</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(df, 'defensive_objects', '防御/遮蔽物'))}</p></div>` : ''}
+                    </div>
+                `;
+            }
+            
+            // 过程分析（支持中英文键名）
+            const processAnalysis = getField(analysis, 'process_analysis', '过程分析') ||
+                                   getField(analysis, 'processAnalysis', '绘画过程分析');
+            if (processAnalysis) {
+                const pa = processAnalysis;
+                html += `
+                    <div style="background:#16213e;padding:12px;border-radius:6px;margin-bottom:10px;">
+                        <p style="margin:0 0 10px 0;color:#17a2b8;font-size:1rem;"><strong>🔄 绘画过程分析</strong></p>
+                        ${(getField(pa, 'drawing_sequence', '绘画顺序')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">绘画顺序</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(pa, 'drawing_sequence', '绘画顺序'))}</p></div>` : ''}
+                        ${(getField(pa, 'erasures_and_modifications', '涂改情况')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">涂改情况</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(pa, 'erasures_and_modifications', '涂改情况'))}</p></div>` : ''}
+                        ${(getField(pa, 'time_distribution', '耗时分布')) ? `<div><span style="color:#888;font-size:0.85rem;">耗时分布</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(pa, 'time_distribution', '耗时分布'))}</p></div>` : ''}
+                    </div>
+                `;
+            }
+            
+            // 表情分析（支持中英文键名）
+            const expressionAnalysis = getField(analysis, 'expression_analysis', '表情分析') ||
+                                      getField(analysis, 'expressionAnalysis', '绘画表情分析');
+            if (expressionAnalysis) {
+                const ea = expressionAnalysis;
+                html += `
+                    <div style="background:#16213e;padding:12px;border-radius:6px;margin-bottom:10px;">
+                        <p style="margin:0 0 10px 0;color:#ffc107;font-size:1rem;"><strong>😊 表情分析</strong></p>
+                        ${(getField(ea, 'emotional_state_during_drawing', '绘画时情绪状态')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">绘画时情绪状态</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(ea, 'emotional_state_during_drawing', '绘画时情绪状态'))}</p></div>` : ''}
+                        ${(getField(ea, 'focus_changes', '专注度变化')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">专注度变化</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(ea, 'focus_changes', '专注度变化'))}</p></div>` : ''}
+                        ${(getField(ea, 'stress_indicators', '压力指标')) ? `<div><span style="color:#888;font-size:0.85rem;">压力指标</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(ea, 'stress_indicators', '压力指标'))}</p></div>` : ''}
+                    </div>
+                `;
+            }
+            
+            // 时序关联
+            const temporalCorr = getField(analysis, 'temporal_correlation', '时序关联');
+            if (temporalCorr) {
+                html += `
+                    <div style="background:#0f3460;padding:12px;border-radius:6px;margin-bottom:10px;">
+                        <p style="margin:0 0 8px 0;color:#9c27b0;font-size:1rem;"><strong>⏱️ 时序关联分析</strong></p>
+                        <p style="margin:0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(temporalCorr)}</p>
+                    </div>
+                `;
+            }
+            
+            // 心理猜想（支持多种可能的键名）
+            const psychologicalGuesstimates = getField(data, 'psychological_guesstimates', '心理状态猜想') ||
+                                             getField(data, 'psychological_guesses', '心理猜想') ||
+                                             getField(data, 'hypotheses', '猜想');
+            if (psychologicalGuesstimates && Array.isArray(psychologicalGuesstimates)) {
+                html += `
+                    <div style="background:#0f3460;padding:12px;border-radius:6px;margin-bottom:10px;">
+                        <p style="margin:0 0 10px 0;color:#e94560;font-size:1rem;"><strong>💡 心理状态猜想</strong></p>
+                        <ol style="margin:0;padding-left:20px;">
+                            ${psychologicalGuesstimates.map((h, i) => `
+                                <li style="margin:8px 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">
+                                    <span style="display:inline-block;background:#e94560;color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin-right:8px;">${i+1}</span>
+                                    ${decodeEscapedChars(h)}
+                                </li>
+                            `).join('')}
+                        </ol>
+                    </div>
+                `;
+            }
+            
+            // 询问问题（支持多种可能的键名）
+            const questionsForUser = getField(data, 'questions_for_user', '询问用户的问题') ||
+                                    getField(data, 'questions', '问题') ||
+                                    getField(data, 'questionsToAsk', '提问');
+            if (questionsForUser && Array.isArray(questionsForUser)) {
+                html += `
+                    <div style="background:#16213e;padding:12px;border-radius:6px;margin-bottom:10px;">
+                        <p style="margin:0 0 10px 0;color:#17a2b8;font-size:1rem;"><strong>❓ 建议询问的问题</strong></p>
+                        <ol style="margin:0;padding-left:20px;">
+                            ${questionsForUser.map((q, i) => `
+                                <li style="margin:8px 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">
+                                    ${decodeEscapedChars(q)}
+                                </li>
+                            `).join('')}
+                        </ol>
+                    </div>
+                `;
+            }
+            
+            // 用户信息请求
+            const userInfoRequest = getField(data, 'user_information_request', '用户信息请求') ||
+                                   getField(data, 'userInfoRequest', '基本信息');
+            if (userInfoRequest) {
+                const uir = userInfoRequest;
+                html += `
+                    <div style="background:#16213e;padding:12px;border-radius:6px;margin-bottom:10px;">
+                        <p style="margin:0 0 8px 0;color:#28a745;font-size:1rem;"><strong>👤 建议收集的基本信息</strong></p>
+                        <div style="display:flex;gap:15px;">
+                            ${(getField(uir, 'age_range', '年龄段')) ? `<div><span style="color:#888;font-size:0.85rem;">年龄段</span><p style="margin:3px 0 0 0;color:#ddd;">${decodeEscapedChars(getField(uir, 'age_range', '年龄段'))}</p></div>` : ''}
+                            ${(getField(uir, 'gender', '性别')) ? `<div><span style="color:#888;font-size:0.85rem;">性别</span><p style="margin:3px 0 0 0;color:#ddd;">${decodeEscapedChars(getField(uir, 'gender', '性别'))}</p></div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // 如果没有生成任何内容，显示调试信息
+            if (!html) {
+                console.error('[formatAnalysisResult] No content generated for data:', data);
+                return `
+                    <p style="color:#ff6b6b;">⚠️ 无法解析分析内容</p>
+                    <details style="margin-top:10px;">
+                        <summary style="color:#888;cursor:pointer;">查看原始数据</summary>
+                        <pre style="background:#1a1a2e;padding:10px;border-radius:4px;color:#aaa;font-size:0.8rem;overflow-x:auto;">${JSON.stringify(data, null, 2).slice(0, 2000)}</pre>
+                    </details>
+                `;
+            }
+            
+            return html;
+        }
+
+        // 格式化日志内容
+        function formatLogContent(log) {
+            const sections = [];
+            
+            // 根据阶段格式化输出
+            switch (log.stage) {
+                case 'initial_analysis':
+                    if (log.llm_output) {
+                        const output = log.llm_output;
+                        // 检查是否有 raw_response（LLM返回的非结构化文本）
+                        if (output.raw_response) {
+                            // 先解码 raw_response 本身
+                            const decodedRaw = decodeEscapedChars(output.raw_response);
+                            
+                            // 尝试从 decodedRaw 提取 JSON
+                            try {
+                                const jsonMatch = decodedRaw.match(/\{[\s\S]*\}/);
+                                if (jsonMatch) {
+                                    const parsed = JSON.parse(jsonMatch[0]);
+                                    
+                                    // 递归解码 parsed 对象中的所有字符串值
+                                    function deepDecode(obj) {
+                                        if (typeof obj === 'string') {
+                                            return decodeEscapedChars(obj);
+                                        } else if (Array.isArray(obj)) {
+                                            return obj.map(deepDecode);
+                                        } else if (typeof obj === 'object' && obj !== null) {
+                                            const result = {};
+                                            for (const [key, value] of Object.entries(obj)) {
+                                                result[key] = deepDecode(value);
+                                            }
+                                            return result;
+                                        }
+                                        return obj;
+                                    }
+                                    
+                                    const fullyDecoded = deepDecode(parsed);
+                                    
+                                    // Thinking模型格式：{think, analysis}；Instruct模型格式：{analysis} 或扁平结构
+                                    const resultData = fullyDecoded.analysis ? fullyDecoded : { analysis: fullyDecoded };
+                                    
+                                    sections.push(`
+                                        <div class="log-section">
+                                            <div class="log-section-title">🧠 DAPR分析结论</div>
+                                            <div class="log-content readable">
+                                                ${formatAnalysisResult(resultData)}
+                                            </div>
+                                        </div>
+                                    `);
+                                } else {
+                                    // 显示文本摘要
+                                    const summary = decodedRaw.slice(0, 800);
+                                    sections.push(`
+                                        <div class="log-section">
+                                            <div class="log-section-title">🧠 DAPR分析结论</div>
+                                            <div class="log-content readable" style="white-space:pre-wrap;line-height:1.6;">
+                                                ${summary}${decodedRaw.length > 800 ? '...' : ''}
+                                            </div>
+                                        </div>
+                                    `);
+                                }
+                            } catch (e) {
+                                // 显示原始文本
+                                const summary = decodedRaw.slice(0, 800);
+                                sections.push(`
+                                    <div class="log-section">
+                                        <div class="log-section-title">🧠 DAPR分析结论</div>
+                                        <div class="log-content readable" style="white-space:pre-wrap;line-height:1.6;">
+                                            ${summary}${decodedRaw.length > 800 ? '...' : ''}
+                                        </div>
+                                    </div>
+                                `);
+                            }
+                        } else {
+                            // 使用结构化数据 - 使用 formatAnalysisResult 统一处理
+                            const formattedResult = formatAnalysisResult(output);
+                            
+                            sections.push(`
+                                <div class="log-section">
+                                    <div class="log-section-title">🧠 DAPR分析结论</div>
+                                    <div class="log-content readable">
+                                        ${formattedResult}
+                                    </div>
+                                </div>
+                            `);
+                        }
+                    }
+                    break;
+                    
+                case 'analysis_stream_complete':
+                    // 流式分析完成，显示最终结果（支持Thinking模型）
+                    if (log.llm_output && log.llm_output.result) {
+                        const result = log.llm_output.result;
+                        
+                        // 准备显示的数据 - 对于Thinking模型，传递整个result（包含think字段）；否则传递analysis或result
+                        // formatAnalysisResult 函数内部会处理 think 字段的显示，不需要在这里重复处理
+                        const displayData = result.think ? result : (result.analysis || result);
+                        
+                        console.log('[Debug] analysis_stream_complete result:', result);
+                        console.log('[Debug] displayData:', displayData);
+                        
+                        // formatAnalysisResult 已经包含了思考过程的显示，直接调用即可
+                        const formattedResult = formatAnalysisResult(displayData);
+                        
+                        sections.push(`
+                            <div class="log-section">
+                                <div class="log-section-title">🧠 DAPR分析结论（流式）</div>
+                                <div class="log-content readable">
+                                    ${formattedResult}
+                                </div>
+                            </div>
+                        `);
+                    } else {
+                        console.log('[Debug] analysis_stream_complete - no result:', log);
+                    }
+                    break;
+                    
+                case 'user_answers':
+                    if (log.data && log.data.answers) {
+                        sections.push(`
+                            <div class="log-section">
+                                <div class="log-section-title">💬 受试者回答</div>
+                                <div class="log-content readable">
+                                    ${log.data.questions ? `
+                                        ${log.data.questions.map((q, i) => `
+                                            <div style="margin:10px 0;padding:10px;background:#0f3460;border-radius:4px;">
+                                                <p style="white-space:pre-wrap;line-height:1.4;"><strong>Q${i+1}: ${decodeEscapedChars(q)}</strong></p>
+                                                <p style="color:#e94560;margin-top:5px;white-space:pre-wrap;line-height:1.4;">A: ${decodeEscapedChars(log.data.answers[i]) || '(未回答)'}</p>
+                                            </div>
+                                        `).join('')}
+                                    ` : `
+                                        <ol>
+                                            ${log.data.answers.map((a, i) => `<li style="margin:8px 0;white-space:pre-wrap;line-height:1.4;"><strong>回答:</strong> ${decodeEscapedChars(a)}</li>`).join('')}
+                                        </ol>
+                                    `}
+                                </div>
+                            </div>
+                        `);
+                    }
+                    break;
+                    
+                case 'generate_instructions':
+                    if (log.llm_output && log.llm_output.variations) {
+                        sections.push(`
+                            <div class="log-section">
+                                <div class="log-section-title">🎨 编辑指令生成</div>
+                                <div class="log-content readable">
+                                    <p><strong>生成了 ${log.llm_output.variations.length} 个图像变体：</strong></p>
+                                    ${log.llm_output.variations.map((v, i) => `
+                                        <div style="margin: 10px 0; padding: 10px; background: #0f3460; border-radius: 4px;">
+                                            <p><strong>变体 ${i+1}: ${v.name}</strong></p>
+                                            <p>描述：${v.description}</p>
+                                            <p style="color: #aaa; font-size: 0.85rem; margin-top: 5px;">
+                                                <strong>Flux2编辑提示词：</strong>${v.edit_prompt || v.prompt || '无'}
+                                            </p>
+                                            <p style="color: #aaa; font-size: 0.85rem;">
+                                                <strong>上色提示词：</strong>${v.color_prompt || '无'}
+                                            </p>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `);
+                    }
+                    break;
+                    
+                case 'image_generation':
+                    if (log.flux2_output && log.flux2_output.generated_images) {
+                        sections.push(`
+                            <div class="log-section">
+                                <div class="log-section-title">🖼️ 图像生成结果</div>
+                                <div class="log-content readable">
+                                    <p>成功生成 ${log.flux2_output.generated_images.length} 张图像</p>
+                                    ${log.flux2_output.generated_images.map(img => `
+                                        <div style="margin: 10px 0;">
+                                            <p><strong>${img.name}</strong></p>
+                                            <p style="color: #888; font-size: 0.85rem;">${img.description}</p>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `);
+                    }
+                    break;
+                    
+                case 'final_questions_generated':
+                    if (log.llm_output && log.llm_output.questions) {
+                        sections.push(`
+                            <div class="log-section">
+                                <div class="log-section-title">❓ 最终深入问题</div>
+                                <div class="log-content readable">
+                                    <p><strong>基于用户选择生成的问题：</strong></p>
+                                    <ol>
+                                        ${log.llm_output.questions.map(q => `<li style="white-space:pre-wrap;line-height:1.4;">${decodeEscapedChars(q)}</li>`).join('')}
+                                    </ol>
+                                </div>
+                            </div>
+                        `);
+                    }
+                    break;
+                    
+                case 'final_report':
+                    if (log.llm_output) {
+                        const r = log.llm_output;
+                        const deep = r.deep_analysis || {};
+                        
+                        sections.push(`
+                            <div class="log-section">
+                                <div class="log-section-title">📋 最终心理分析报告</div>
+                                <div class="log-content readable">
+                                    ${r.summary ? `
+                                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                            <p style="margin:0;color:white;font-size:1.05rem;"><strong>📊 综合分析</strong></p>
+                                            <p style="margin:10px 0 0 0;color:white;line-height:1.6;white-space:pre-wrap;">${decodeEscapedChars(r.summary)}</p>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:15px;">
+                                        ${r.stress_level ? `
+                                            <div style="background:#16213e;padding:12px;border-radius:6px;border-left:4px solid #e94560;">
+                                                <p style="margin:0;color:#888;font-size:0.85rem;">压力水平</p>
+                                                <p style="margin:5px 0 0 0;color:#eee;white-space:pre-wrap;">${decodeEscapedChars(r.stress_level)}</p>
+                                            </div>
+                                        ` : ''}
+                                        ${r.coping_style ? `
+                                            <div style="background:#16213e;padding:12px;border-radius:6px;border-left:4px solid #17a2b8;">
+                                                <p style="margin:0;color:#888;font-size:0.85rem;">应对方式</p>
+                                                <p style="margin:5px 0 0 0;color:#eee;white-space:pre-wrap;">${decodeEscapedChars(r.coping_style)}</p>
+                                            </div>
+                                        ` : ''}
+                                        ${r.emotional_state ? `
+                                            <div style="background:#16213e;padding:12px;border-radius:6px;border-left:4px solid #ffc107;">
+                                                <p style="margin:0;color:#888;font-size:0.85rem;">情绪状态</p>
+                                                <p style="margin:5px 0 0 0;color:#eee;white-space:pre-wrap;">${decodeEscapedChars(r.emotional_state)}</p>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                    
+                                    ${r.selection_interpretation ? `
+                                        <div style="background:#fff3e0;padding:12px;border-radius:6px;margin-bottom:15px;border-left:4px solid #ff9800;">
+                                            <p style="margin:0;color:#e65100;"><strong>🎯 选择行为解读</strong></p>
+                                            <p style="margin:8px 0 0 0;color:#333;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(r.selection_interpretation)}</p>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${r.key_insights?.length ? `
+                                        <div style="margin-bottom:15px;">
+                                            <p style="color:#aaa;font-size:0.9rem;margin-bottom:8px;"><strong>💡 关键发现</strong></p>
+                                            <ul style="margin:0;padding-left:20px;">
+                                                ${r.key_insights.map(i => `<li style="margin:6px 0;color:#ddd;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(i)}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${(deep.self_concept || deep.interpersonal || deep.stress_response || deep.underlying_needs) ? `
+                                        <div style="background:#0f3460;padding:15px;border-radius:8px;margin-bottom:15px;">
+                                            <p style="margin:0 0 10px 0;color:#e94560;font-size:0.95rem;"><strong>🔍 深度心理分析</strong></p>
+                                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+                                                ${deep.self_concept ? `<div><p style="margin:0;color:#888;font-size:0.8rem;">自我概念</p><p style="margin:5px 0 0 0;color:#ccc;font-size:0.9rem;white-space:pre-wrap;line-height:1.4;">${decodeEscapedChars(deep.self_concept)}</p></div>` : ''}
+                                                ${deep.interpersonal ? `<div><p style="margin:0;color:#888;font-size:0.8rem;">人际关系</p><p style="margin:5px 0 0 0;color:#ccc;font-size:0.9rem;white-space:pre-wrap;line-height:1.4;">${decodeEscapedChars(deep.interpersonal)}</p></div>` : ''}
+                                                ${deep.stress_response ? `<div><p style="margin:0;color:#888;font-size:0.8rem;">压力反应</p><p style="margin:5px 0 0 0;color:#ccc;font-size:0.9rem;white-space:pre-wrap;line-height:1.4;">${decodeEscapedChars(deep.stress_response)}</p></div>` : ''}
+                                                ${deep.underlying_needs ? `<div><p style="margin:0;color:#888;font-size:0.8rem;">潜在需求</p><p style="margin:5px 0 0 0;color:#ccc;font-size:0.9rem;white-space:pre-wrap;line-height:1.4;">${decodeEscapedChars(deep.underlying_needs)}</p></div>` : ''}
+                                            </div>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${r.recommendations?.length ? `
+                                        <div style="margin-bottom:15px;">
+                                            <p style="color:#aaa;font-size:0.9rem;margin-bottom:8px;"><strong>💪 专业建议</strong></p>
+                                            <div style="display:flex;flex-direction:column;gap:8px;">
+                                                ${r.recommendations.map((rec, i) => `
+                                                    <div style="background:#e8f5e9;padding:10px 12px;border-radius:6px;border-left:4px solid #4caf50;">
+                                                        <span style="background:#4caf50;color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin-right:8px;">${i+1}</span>
+                                                        <span style="color:#2e7d32;white-space:pre-wrap;line-height:1.4;">${decodeEscapedChars(rec)}</span>
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${r.follow_up?.length ? `
+                                        <div>
+                                            <p style="color:#aaa;font-size:0.9rem;margin-bottom:8px;"><strong>📌 后续关注</strong></p>
+                                            <ul style="margin:0;padding-left:20px;">
+                                                ${r.follow_up.map(item => `<li style="margin:5px 0;color:#ccc;white-space:pre-wrap;line-height:1.4;">${decodeEscapedChars(item)}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `);
+                    }
+                    break;
+                    
+                case 'image_selection':
+                    if (log.data && log.data.selection_behavior) {
+                        const sb = log.data.selection_behavior;
+                        const finalSel = sb.finalSelection || {};
+                        sections.push(`
+                            <div class="log-section">
+                                <div class="log-section-title">🎯 图像选择行为</div>
+                                <div class="log-content readable">
+                                    <p><strong>最终选择：</strong>${finalSel.imageName || 'N/A'} (第${finalSel.viewOrder || '?'}个查看)</p>
+                                    <p><strong>查看顺序：</strong>${(sb.viewOrder || []).join(' → ')}</p>
+                                    <p><strong>总查看数：</strong>${finalSel.totalViews || sb.viewOrder?.length || 0}</p>
+                                    ${sb.hesitationIndicators?.length > 0 ? `
+                                        <p><strong>⚠️ 犹豫行为：</strong></p>
+                                        <ul>
+                                            ${sb.hesitationIndicators.map(h => `<li>${h.description || h.type}</li>`).join('')}
+                                        </ul>
+                                    ` : '<p><strong>犹豫行为：</strong>未发现明显犹豫</p>'}
+                                </div>
+                            </div>
+                        `);
+                    }
+                    break;
+                    
+                case 'generate_instructions':
+                    if (log.llm_output && log.llm_output.variations) {
+                        sections.push(`
+                            <div class="log-section">
+                                <div class="log-section-title">🎨 图像变体生成</div>
+                                <div class="log-content readable">
+                                    <p>生成了 ${log.llm_output.variations.length} 个变体：</p>
+                                    ${log.llm_output.variations.map((v, i) => `
+                                        <div style="margin: 10px 0; padding: 10px; background: #0f3460; border-radius: 4px;">
+                                            <p><strong>变体 ${i+1}: ${v.name}</strong></p>
+                                            <p style="color: #aaa;">${v.description}</p>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `);
+                    }
+                    break;
+                    
+                case 'final_questions_generated':
+                    if (log.llm_output && log.llm_output.questions) {
+                        sections.push(`
+                            <div class="log-section">
+                                <div class="log-section-title">❓ 深入问题</div>
+                                <div class="log-content readable">
+                                    <ol>
+                                        ${log.llm_output.questions.map(q => `<li>${q}</li>`).join('')}
+                                    </ol>
+                                </div>
+                            </div>
+                        `);
+                    }
+                    break;
+                    
+                default:
+                    // 默认情况：智能格式化显示
+                    if (log.llm_output && Object.keys(log.llm_output).length > 0) {
+                        const output = log.llm_output;
+                        let content = '';
+                        let parsedFromRaw = null;
+                        
+                        // 检查是否有 raw_response 字段（LLM返回的原始文本）
+                        if (output.raw_response && typeof output.raw_response === 'string') {
+                            // 尝试从 raw_response 中提取 JSON
+                            try {
+                                const jsonMatch = output.raw_response.match(/\{[\s\S]*\}/);
+                                if (jsonMatch) {
+                                    parsedFromRaw = JSON.parse(jsonMatch[0]);
+                                }
+                            } catch (e) {
+                                // 解析失败，使用原始文本
+                                parsedFromRaw = null;
+                            }
+                            
+                            // 如果解析成功，使用解析后的数据
+                            if (parsedFromRaw) {
+                                content = formatAnalysisResult(parsedFromRaw);
+                            } else {
+                                // 显示原始文本的摘要（前500字符）
+                                const summary = output.raw_response.slice(0, 500);
+                                content = `
+                                    <div style="background:#1a1a2e;padding:12px;border-radius:6px;margin-bottom:10px;">
+                                        <p style="margin:0;color:#ddd;line-height:1.6;white-space:pre-wrap;">${summary}${output.raw_response.length > 500 ? '...' : ''}</p>
+                                    </div>
+                                `;
+                            }
+                        }
+                        
+                        // 如果没有从 raw_response 获取到内容，尝试其他字段
+                        if (!content) {
+                            if (output.summary || output.analysis_summary) {
+                                content += `<p><strong>摘要：</strong>${output.summary || output.analysis_summary}</p>`;
+                            }
+                            if (output.questions && Array.isArray(output.questions)) {
+                                content += `<p><strong>问题：</strong></p><ol>${output.questions.map(q => `<li>${q}</li>`).join('')}</ol>`;
+                            }
+                            if (output.hypotheses && Array.isArray(output.hypotheses)) {
+                                content += `<p><strong>猜想：</strong></p><ul>${output.hypotheses.map(h => `<li>${h.description || h} (${h.confidence || '未知'})</li>`).join('')}</ul>`;
+                            }
+                            if (output.variations && Array.isArray(output.variations)) {
+                                content += `<p><strong>变体：</strong>${output.variations.map(v => v.name).join('、')}</p>`;
+                            }
+                        }
+                        
+                        // 如果还是没内容，显示折叠的原始数据
+                        if (!content) {
+                            content = `
+                                <p style="color:#888;font-size:0.85rem;">暂无可预览内容</p>
+                                <details style="margin-top:10px;">
+                                    <summary style="cursor:pointer;color:#e94560;font-size:0.85rem;">查看原始数据</summary>
+                                    <pre style="margin-top:10px;font-size:0.75rem;opacity:0.7;max-height:300px;overflow:auto;">${JSON.stringify(output, null, 2)}</pre>
+                                </details>
+                            `;
+                        }
+                        
+                        sections.push(`
+                            <div class="log-section">
+                                <div class="log-section-title">📄 ${log.stage || '分析结果'}</div>
+                                <div class="log-content readable">
+                                    ${content}
+                                </div>
+                            </div>
+                        `);
+                    } else if (log.data) {
+                        // 显示 data 字段的内容
+                        let dataContent = '';
+                        for (const [key, value] of Object.entries(log.data)) {
+                            if (typeof value === 'string') {
+                                dataContent += `<p><strong>${key}:</strong> ${value}</p>`;
+                            } else if (Array.isArray(value)) {
+                                dataContent += `<p><strong>${key}:</strong> ${value.join('、')}</p>`;
+                            } else if (typeof value === 'object' && value !== null) {
+                                // 对象类型折叠显示
+                                dataContent += `
+                                    <details style="margin:5px 0;">
+                                        <summary style="cursor:pointer;color:#aaa;">${key}</summary>
+                                        <pre style="font-size:0.8rem;margin:5px 0;padding:5px;background:#0f3460;border-radius:4px;">${JSON.stringify(value, null, 2)}</pre>
+                                    </details>
+                                `;
+                            }
+                        }
+                        if (dataContent) {
+                            sections.push(`
+                                <div class="log-section">
+                                    <div class="log-section-title">📊 ${log.stage || '数据'}</div>
+                                    <div class="log-content readable">${dataContent}</div>
+                                </div>
+                            `);
+                        }
+                    }
+            }
+            
+            return sections.join('');
+        }
+
+        // 渲染日志
+        function renderLogs() {
+            const container = document.getElementById('log-container');
+            
+            let filteredLogs = state.logs;
+            
+            // 应用过滤
+            if (state.filter !== 'all') {
+                if (state.filter === 'llm') {
+                    filteredLogs = state.logs.filter(log => log.llm_input || log.llm_output);
+                } else if (state.filter === 'flux2') {
+                    filteredLogs = state.logs.filter(log => log.flux2_input || log.flux2_output);
+                }
+            }
+            
+            // 应用会话过滤
+            if (state.selectedSession) {
+                filteredLogs = filteredLogs.filter(log => log.session_id === state.selectedSession);
+            }
+            
+            if (filteredLogs.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <p>${state.logs.length === 0 ? '等待新的日志...' : '没有符合条件的日志'}</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filteredLogs.map(log => `
+                <div class="log-entry">
+                    <div class="log-header">
+                        <div>
+                            <span class="log-session">${log.session_id.substring(0, 8)}...</span>
+                            <span class="log-time">${new Date(log.timestamp).toLocaleString()}</span>
+                        </div>
+                        <span class="log-stage">${log.stage}</span>
+                    </div>
+                    ${formatLogContent(log)}
+                </div>
+            `).join('');
+        }
+
+        // 刷新会话列表
+        function refreshSessions() {
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify({ type: 'list_sessions' }));
+            }
+        }
+
+        // 清空日志
+        function clearLogs() {
+            state.logs = [];
+            renderLogs();
+        }
+
+        // 定时刷新会话列表
+        setInterval(refreshSessions, 5000);
+        
+        // ==================== 历史会话导入功能 ====================
+        
+        // 显示历史会话弹窗
+        async function showHistoryModal() {
+            document.getElementById('history-modal').style.display = 'block';
+            await loadHistorySessions();
+        }
+        
+        // 关闭历史会话弹窗
+        function closeHistoryModal() {
+            document.getElementById('history-modal').style.display = 'none';
+        }
+        
+        // 加载历史会话列表
+        async function loadHistorySessions() {
+            const loadingEl = document.getElementById('history-loading');
+            const listEl = document.getElementById('history-list');
+            const emptyEl = document.getElementById('history-empty');
+            
+            loadingEl.style.display = 'block';
+            listEl.style.display = 'none';
+            emptyEl.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/history/sessions');
+                const data = await response.json();
+                
+                loadingEl.style.display = 'none';
+                
+                if (data.sessions.length === 0) {
+                    emptyEl.style.display = 'block';
+                    return;
+                }
+                
+                renderHistorySessions(data.sessions);
+                listEl.style.display = 'block';
+                
+            } catch (error) {
+                console.error('加载历史会话失败:', error);
+                loadingEl.innerHTML = `<p style="color: #e94560;">加载失败: ${error.message}</p>`;
+            }
+        }
+        
+        // 渲染历史会话列表
+        function renderHistorySessions(sessions) {
+            const container = document.getElementById('history-list');
+            
+            container.innerHTML = sessions.map(session => {
+                const hasWebcam = session.files.webcam ? '✅' : '❌';
+                const hasScreen = session.files.screen ? '✅' : '❌';
+                const hasJson = session.files.json ? '✅' : '❌';
+                const createdAt = session.created_at ? new Date(session.created_at).toLocaleString() : '未知时间';
+                
+                // 检查是否已有分析
+                const hasAnalysis = session.session_data?.has_analysis;
+                const analysisBadge = hasAnalysis ? 
+                    '<span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">已分析</span>' :
+                    '<span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">未分析</span>';
+                
+                return `
+                    <div class="history-item" style="background: #16213e; border: 1px solid #0f3460; border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; gap: 15px;">
+                        <div class="history-preview" style="width: 120px; height: 120px; background: #1a1a2e; border-radius: 8px; overflow: hidden; flex-shrink: 0;">
+                            <img src="/api/history/session/${session.id}/preview" 
+                                 style="width: 100%; height: 100%; object-fit: contain;"
+                                 onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🎨</text></svg>'">
+                        </div>
+                        <div class="history-info" style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                                <div>
+                                    <h4 style="margin: 0 0 5px 0; color: #eee;">会话 ${session.id.substring(0, 8)}...</h4>
+                                    <p style="margin: 0; font-size: 0.85rem; color: #888;">${createdAt}</p>
+                                </div>
+                                ${analysisBadge}
+                            </div>
+                            <div style="display: flex; gap: 15px; font-size: 0.8rem; color: #aaa; margin-bottom: 10px;">
+                                <span title="摄像头视频">📹 ${hasWebcam}</span>
+                                <span title="屏幕录制">🖥️ ${hasScreen}</span>
+                                <span title="会话数据">💾 ${hasJson}</span>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button onclick="analyzeHistorySession('${session.id}', false)" 
+                                        style="flex: 1; padding: 8px 16px; background: #e94560; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;"
+                                        title="在原始会话上重新进行分析，会覆盖之前的分析结果">
+                                    🔍 重新分析
+                                </button>
+                                <button onclick="analyzeHistorySession('${session.id}', true)" 
+                                        style="flex: 1; padding: 8px 16px; background: #0f3460; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;"
+                                        title="创建一个新会话，复制该会话的绘画和视频文件进行独立分析，不会修改原始会话数据">
+                                    📋 复制为新会话
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // 分析历史会话
+        async function analyzeHistorySession(sessionId, createNew) {
+            const action = createNew ? '复制为新会话' : '重新分析';
+            console.log(`[History] ${action}: ${sessionId}`);
+            
+            try {
+                const response = await fetch('/api/history/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        create_new: createNew
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    console.log(`[History] 分析已启动:`, data);
+                    // 关闭弹窗，直接显示分析过程
+                    closeHistoryModal();
+                    
+                    // 刷新会话列表
+                    setTimeout(() => {
+                        state.ws.send(JSON.stringify({ type: 'list_sessions' }));
+                    }, 500);
+                } else {
+                    throw new Error(data.detail || '启动分析失败');
+                }
+                
+            } catch (error) {
+                console.error('[History] 分析失败:', error);
+                alert(`❌ 分析失败: ${error.message}`);
+            }
+        }
+        
+        // 点击弹窗外部关闭
+        document.getElementById('history-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeHistoryModal();
+            }
+        });
+    </script>
+</body>
+</html>

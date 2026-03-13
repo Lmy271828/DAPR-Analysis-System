@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAPR 心理分析系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 引导页面 -->
+        <div id="guidance-page" class="page active">
+            <div class="container">
+                <h1>雨中人绘画测试</h1>
+                <div class="guidance-content">
+                    <div class="relaxation-animation">
+                        <div class="breathing-circle"></div>
+                        <p class="breathing-text">深呼吸...</p>
+                    </div>
+                    <div class="guidance-text">
+                        <p id="guidance-text">请在这张纸上画一幅'雨中人'的图画。画中需要包含一个人物，且这个人物处于下雨的环境中。请尽量画出完整的人物形象，不要使用火柴人或简笔画。绘画质量不会影响结果，请按照您自己的想法自由创作。</p>
+                    </div>
+                    <button id="start-btn" class="btn-primary">我已准备好，开始绘画</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 权限申请页面 -->
+        <div id="permission-page" class="page">
+            <div class="container">
+                <h2>权限申请</h2>
+                <p>为了完整记录您的绘画过程，我们需要以下权限：</p>
+                <div class="permission-list">
+                    <div class="permission-item">
+                        <span class="icon">📷</span>
+                        <span>前置摄像头 - 记录绘画时的表情变化</span>
+                        <span id="camera-status" class="status">待授权</span>
+                    </div>
+                    <div class="permission-item">
+                        <span class="icon">🖥️</span>
+                        <span>屏幕录制 - 记录绘画过程</span>
+                        <span id="screen-status" class="status">待授权</span>
+                    </div>
+                </div>
+                <div class="permission-actions">
+                    <button id="request-camera-btn" class="btn-secondary">授权摄像头</button>
+                    <button id="request-screen-btn" class="btn-secondary">授权屏幕录制</button>
+                </div>
+                <button id="enter-drawing-btn" class="btn-primary" disabled>进入绘画界面</button>
+            </div>
+        </div>
+
+        <!-- 绘画页面 -->
+        <div id="drawing-page" class="page">
+            <div class="drawing-container">
+                <!-- 摄像头预览（小窗口） -->
+                <div class="webcam-preview">
+                    <video id="webcam-video" autoplay muted playsinline></video>
+                    <div class="recording-indicator" id="recording-indicator">
+                        <span class="dot"></span> 录制中
+                    </div>
+                </div>
+
+                <!-- 绘画工具栏 -->
+                <div class="toolbar" id="toolbar" style="display: none;">
+                    <button id="rotate-btn" class="tool-btn" title="旋转画布">
+                        🔄
+                    </button>
+                    <button id="pen-btn" class="tool-btn active" title="画笔">
+                        ✏️
+                    </button>
+                    <button id="eraser-btn" class="tool-btn" title="橡皮">
+                        🧼
+                    </button>
+                    <button id="clear-btn" class="tool-btn" title="清空">
+                        🗑️
+                    </button>
+                    <input type="range" id="brush-size" min="1" max="50" value="3" title="笔刷大小">
+                    <button id="submit-drawing-btn" class="btn-primary">提交绘画</button>
+                </div>
+
+                <!-- 画布容器 -->
+                <div class="canvas-container" id="canvas-container">
+                    <canvas id="drawing-canvas"></canvas>
+                    <div class="canvas-hint" id="canvas-hint">
+                        点击"开始绘画"按钮开始录制和绘画
+                    </div>
+                </div>
+
+                <!-- 开始绘画按钮（覆盖层） -->
+                <div class="start-drawing-overlay" id="start-drawing-overlay">
+                    <button id="start-recording-btn" class="btn-primary btn-large">
+                        开始绘画
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分析中页面 -->
+        <div id="analyzing-page" class="page">
+            <div class="container">
+                <div class="loading-animation">
+                    <div class="spinner"></div>
+                    <p>正在分析您的绘画...</p>
+                    <p class="sub-text">这可能需要几分钟时间</p>
+                </div>
+                <!-- 流式分析进度显示 -->
+                <div class="stream-progress" id="stream-progress" style="display: none; margin-top: 30px; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+                    <div class="stream-status" style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
+                        <span class="stream-dot" style="display: inline-block; width: 8px; height: 8px; background: #4a90e2; border-radius: 50%; margin-right: 8px; animation: pulse 1s infinite;"></span>
+                        <span class="stream-status-text">Agent正在思考...</span>
+                        <span class="stream-speed" style="float: right; color: #888;">0.00 chars/s</span>
+                    </div>
+                    <div class="stream-output" style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; min-height: 100px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; line-height: 1.5; color: #495057;">
+                        等待分析开始...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 问答页面 -->
+        <div id="questioning-page" class="page">
+            <div class="container">
+                <h2>了解更多</h2>
+                <div id="questions-container">
+                    <!-- 动态生成问题 -->
+                </div>
+                
+                <div class="user-info-section">
+                    <h3>基本信息</h3>
+                    <div class="form-group">
+                        <label>年龄段</label>
+                        <select id="age-select">
+                            <option value="">请选择</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>性别</label>
+                        <select id="gender-select">
+                            <option value="">请选择</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="submit-answers-btn" class="btn-primary">提交回答</button>
+            </div>
+        </div>
+
+        <!-- 图像生成中页面 -->
+        <div id="generating-page" class="page">
+            <div class="container">
+                <div class="loading-animation">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <p>正在生成图像变体...</p>
+                    <p class="sub-text">AI正在根据您的心理状态生成不同风格的图像</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图像选择页面 -->
+        <div id="selecting-page" class="page">
+            <div class="container">
+                <h2>选择最贴合您心境的图像</h2>
+                <p class="instruction">请仔细观看以下图像，选择一幅最能代表您绘画时心境的画面</p>
+                <div id="images-grid" class="images-grid">
+                    <!-- 动态生成图像 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 图像预览确认页面 -->
+        <div id="image-preview-page" class="page">
+            <div class="preview-container">
+                <img id="preview-image" src="" alt="">
+                <div class="preview-actions" id="preview-actions">
+                    <button id="cancel-preview-btn" class="btn-secondary" disabled>取消</button>
+                    <button id="confirm-preview-btn" class="btn-primary" disabled>确定</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最终问题页面 -->
+        <div id="final-question-page" class="page">
+            <div class="container">
+                <h2>最后几个问题</h2>
+                <div id="final-questions-container">
+                    <!-- 动态生成问题 -->
+                </div>
+                <button id="submit-final-btn" class="btn-primary">提交回答</button>
+            </div>
+        </div>
+
+        <!-- 生成最终报告页面 -->
+        <div id="final-report-page" class="page">
+            <div class="container">
+                <div class="loading-animation">
+                    <div class="spinner"></div>
+                    <p>正在生成您的最终心理分析报告...</p>
+                    <p class="sub-text">综合分析您的绘画、选择和回答</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 结果页面 -->
+        <div id="result-page" class="page">
+            <div class="container">
+                <h2>您的心理分析报告</h2>
+                <div id="report-content" class="report-content">
+                    <!-- 动态生成报告 -->
+                </div>
+                <button id="restart-btn" class="btn-secondary">重新开始</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 隐藏的视频录制元素 -->
+    <video id="screen-video" style="display: none;" autoplay></video>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
