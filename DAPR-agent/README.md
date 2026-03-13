@@ -2,50 +2,12 @@
 
 基于 "Draw-A-Person-in-the-Rain (DAPR)" 绘画测试的交互式心理分析 Agent 系统。
 
-## 🎯 系统概述
-
-本系统结合多模态 AI 分析（Qwen3-VL-4B）和图像生成（FLUX.2 Klein 4B），为心理分析提供了一套完整的数字化解决方案：
-
-1. **引导阶段** - 渐进式放松引导，引导用户进入绘画状态
-2. **绘画阶段** - 标准画布，同步录制面部表情和绘画过程
-3. **分析阶段** - Qwen3-VL 分析绘画、表情和过程视频
-4. **交互阶段** - AI 与用户对话，深入了解心理状态
-5. **生成阶段** - Flux2 根据分析结果生成多种心理图像变体
-6. **选择阶段** - 用户选择最贴合心境的图像
-7. **报告阶段** - 生成最终心理分析报告
-
-## 📁 项目结构
-
-```
-DAPR-agent/
-├── backend/                    # 后端服务
-│   ├── main.py                # FastAPI 主服务
-│   ├── config.py              # 配置文件
-│   ├── models.py              # 数据模型
-│   ├── llm_service.py         # Qwen3-VL 服务
-│   ├── image_service.py       # ComfyUI 图像服务
-│   └── __init__.py
-├── frontend/                   # 前端页面
-├── static/                     # 静态文件
-│   ├── index.html             # 受试者界面
-│   ├── therapist.html         # 咨询师监控面板
-│   ├── css/
-│   │   └── style.css          # 样式文件
-│   └── js/
-│       └── app.js             # 前端应用
-├── sessions/                   # 会话数据存储
-├── outputs/                    # 生成的图像
-├── requirements.txt            # Python 依赖
-├── start.bat                  # Windows 启动脚本
-└── README.md                  # 项目文档
-```
-
 ## 🚀 快速开始
 
 ### 环境要求
 
 - Python 3.12
-- SM>=8.9的NVIDIA GPU
+- NVIDIA GPU (需要本地运行ComfyUI工作流)
 - Windows 10/11 或 Linux（推荐）
   ```bash
   conda create -n dapr-agent python=3.12
@@ -70,10 +32,10 @@ DAPR-agent/
    cd ComfyUI
    pip install -r requirements.txt
    python main.py
-   # 按快捷键 Ctrl+O，选择 color_the_dapr_doodle.json 导入
+   # 按快捷键 Ctrl+O，选择 color_the_dapr_doodle_api.json 导入
    ```
    - 确保 ComfyUI 服务运行在 `127.0.0.1:8188`
-   - 确认ComfyUI导入工作流文件 `color_the_dapr_doodle.json`
+   - 确认ComfyUI导入工作流文件 `color_the_dapr_doodle_api.json`
    - 按照指引配置缺失的模型权重
 
 
@@ -113,12 +75,14 @@ python main.py
 ### 后端配置 (`backend/config.py`)
 
 ```python
-# LLM 配置
+# LLM 配置，如果需要使用别的厂商的AI，在 /DAPR-agent/config.py 中自行配置
 LLM_CONFIG = {
-    "model_path": "模型路径",
-    "temperature": 0.7,
-    "max_tokens": 2048,      # 8GB 显存建议 2048
-    "max_context": 8192,     # 8GB 显存建议 8192
+    "api_key": os.environ.get("MOONSHOT_API_KEY", ""),  # 从环境变量读取 API Key
+    "base_url": "https://api.moonshot.cn/v1",           # Moonshot API 基础 URL
+    "model": "kimi-k2.5",                                # 模型名称
+    "temperature": 1,
+    "max_tokens": 4096,      # Kimi API 支持的最大 tokens
+    "max_context": 32000,    # 上下文窗口大小
 }
 
 # ComfyUI 配置
@@ -140,7 +104,7 @@ CANVAS_CONFIG = {
 
 ## 🔒 隐私说明
 
-- 所有用户数据仅存储于本地 `sessions/` 目录
+- 所有用户数据仅存储于本地 `/DAPR-agent/sessions/` 目录，编辑后的图片在`/DAPR-agent/outputs/`
 - 视频和绘画数据仅用于当前会话分析
 - 咨询师可查看完整过程用于专业评估
 - 建议在使用前获取用户知情同意
@@ -149,7 +113,7 @@ CANVAS_CONFIG = {
 
 - **后端**: FastAPI, WebSocket, Python 3.12
 - **前端**: Vanilla JS, Canvas API, MediaRecorder API
-- **AI 模型**: kimi-k2.5
+- **Agent 模型**: kimi-k2.5
 - **图像生成**: FLUX.2 Klein 4B Distill (ComfyUI)
 - **通信**: WebSocket 实时推送
 
@@ -177,9 +141,7 @@ CANVAS_CONFIG = {
 ## 🔧 故障排除
 
 ### 模型加载失败
-- 检查模型文件路径是否正确
-- 确认 llama.cpp 已正确编译
-- 检查 CUDA 驱动是否正常
+- 确认 MOONSHOT_API_KEY 已正确设置
 
 ### ComfyUI 连接失败
 - 确认 ComfyUI 服务已启动
@@ -191,10 +153,9 @@ CANVAS_CONFIG = {
 - 检查浏览器权限设置
 - 确认摄像头和屏幕录制权限已授予
 
-### 前端显示异常
-- 清除浏览器缓存
-- 检查浏览器控制台错误
-- 确认使用现代浏览器 (Chrome/Edge/Firefox)
+### 咨询师界面文字显示异常
+- 检查kimi是否按指定的JSON格式输出回答
+- 检查终端日志是否有关于JSON解析失败的警告
 
 ## 📄 许可证
 
@@ -202,7 +163,7 @@ MIT License
 
 ## 🙏 致谢
 
-- Qwen3-VL by Alibaba Cloud
+- kimi-k2.5 by Moonshot AI
 - FLUX.2 by Black Forest Labs
 - ComfyUI by comfyanonymous
 
