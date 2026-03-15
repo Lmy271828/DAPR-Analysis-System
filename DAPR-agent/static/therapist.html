@@ -469,6 +469,9 @@
     <script>
         const state = {
             ws: null,
+            wsReconnectAttempts: 0,
+            wsReconnectTimer: null,
+            wsManuallyClosed: false,
             sessions: [],
             logs: [],
             selectedSession: null,
@@ -483,12 +486,21 @@
 
         // 连接 WebSocket
         function connectWebSocket() {
+            if (state.ws && (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+
             const wsUrl = `ws://${window.location.host}/ws/therapist`;
             state.ws = new WebSocket(wsUrl);
 
             state.ws.onopen = () => {
                 console.log('WebSocket 已连接');
                 updateConnectionStatus(true);
+                state.wsReconnectAttempts = 0;
+                if (state.wsReconnectTimer) {
+                    clearTimeout(state.wsReconnectTimer);
+                    state.wsReconnectTimer = null;
+                }
                 // 请求会话列表
                 state.ws.send(JSON.stringify({ type: 'list_sessions' }));
             };
@@ -501,14 +513,28 @@
             state.ws.onclose = () => {
                 console.log('WebSocket 已断开');
                 updateConnectionStatus(false);
-                // 重连
-                setTimeout(connectWebSocket, 3000);
+                if (state.wsManuallyClosed) return;
+                scheduleReconnect();
             };
 
             state.ws.onerror = (error) => {
                 console.error('WebSocket 错误:', error);
                 updateConnectionStatus(false);
             };
+        }
+
+        function scheduleReconnect() {
+            state.wsReconnectAttempts += 1;
+            const base = 1000;
+            const max = 30000;
+            const jitter = Math.floor(Math.random() * 300);
+            const delay = Math.min(base * (2 ** (state.wsReconnectAttempts - 1)), max) + jitter;
+
+            console.log(`[WebSocket] 第${state.wsReconnectAttempts}次重连，${delay}ms 后重试`);
+            if (state.wsReconnectTimer) {
+                clearTimeout(state.wsReconnectTimer);
+            }
+            state.wsReconnectTimer = setTimeout(connectWebSocket, delay);
         }
 
         // 更新连接状态
@@ -526,6 +552,13 @@
 
         // 处理消息
         function handleMessage(message) {
+            if (message.type === 'ping') {
+                if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                    state.ws.send(JSON.stringify({ type: 'pong', data: { ts: message?.data?.ts || null } }));
+                }
+                return;
+            }
+
             switch (message.type) {
                 case 'sessions_list':
                     updateSessionList(message.data);
@@ -1698,6 +1731,17 @@
         document.getElementById('history-modal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeHistoryModal();
+            }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            state.wsManuallyClosed = true;
+            if (state.wsReconnectTimer) {
+                clearTimeout(state.wsReconnectTimer);
+                state.wsReconnectTimer = null;
+            }
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.close(1000, 'page unloading');
             }
         });
     </script>

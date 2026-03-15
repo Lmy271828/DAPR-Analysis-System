@@ -6,6 +6,10 @@
 const state = {
     sessionId: null,
     ws: null,
+    wsReconnectAttempts: 0,
+    wsReconnectTimer: null,
+    wsManuallyClosed: false,
+    wsMessageIds: new Set(),
     webcamStream: null,
     screenStream: null,
     mediaRecorder: {
@@ -39,7 +43,10 @@ const CONFIG = {
     API_BASE: '',
     WS_URL: () => `ws://${window.location.host}/ws/subject/${state.sessionId}`,
     CANVAS_WIDTH: 850,
-    CANVAS_HEIGHT: 1100
+    CANVAS_HEIGHT: 1100,
+    WS_RECONNECT_BASE_MS: 1000,
+    WS_RECONNECT_MAX_MS: 30000,
+    WS_RECONNECT_JITTER_MS: 300
 };
 
 // DOM 元素
@@ -151,11 +158,23 @@ async function createSession() {
 
 // 连接 WebSocket
 function connectWebSocket() {
+    if (!state.sessionId) return;
+    if (state.ws && (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
+
     const ws = new WebSocket(CONFIG.WS_URL());
     state.ws = ws;
     
     ws.onopen = () => {
         console.log('WebSocket 已连接');
+        state.wsReconnectAttempts = 0;
+        if (state.wsReconnectTimer) {
+            clearTimeout(state.wsReconnectTimer);
+            state.wsReconnectTimer = null;
+        }
+        // 主动请求恢复上下文，避免中间短断线丢失进度
+        ws.send(JSON.stringify({ type: 'resume_context' }));
     };
     
     ws.onmessage = (event) => {
@@ -165,13 +184,31 @@ function connectWebSocket() {
     
     ws.onclose = () => {
         console.log('WebSocket 已断开');
-        // 尝试重连
-        setTimeout(connectWebSocket, 3000);
+        if (state.wsManuallyClosed) return;
+        scheduleReconnect();
     };
     
     ws.onerror = (error) => {
         console.error('WebSocket 错误:', error);
     };
+}
+
+function scheduleReconnect() {
+    state.wsReconnectAttempts += 1;
+    const expBackoff = Math.min(
+        CONFIG.WS_RECONNECT_BASE_MS * (2 ** (state.wsReconnectAttempts - 1)),
+        CONFIG.WS_RECONNECT_MAX_MS
+    );
+    const jitter = Math.floor(Math.random() * CONFIG.WS_RECONNECT_JITTER_MS);
+    const delay = expBackoff + jitter;
+    console.log(`[WebSocket] 第${state.wsReconnectAttempts}次重连，${delay}ms 后重试`);
+
+    if (state.wsReconnectTimer) {
+        clearTimeout(state.wsReconnectTimer);
+    }
+    state.wsReconnectTimer = setTimeout(() => {
+        connectWebSocket();
+    }, delay);
 }
 
 // 流式分析状态
@@ -183,6 +220,35 @@ const streamAnalysisState = {
 
 // 处理 WebSocket 消息
 function handleWebSocketMessage(message) {
+    if (message.type === 'ping') {
+        if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+            state.ws.send(JSON.stringify({ type: 'pong', data: { ts: message?.data?.ts || null } }));
+        }
+        return;
+    }
+
+    if (message.type === 'restore_context') {
+        const restored = message?.data?.messages || [];
+        restored.forEach((restoredMessage) => {
+            const messageId = restoredMessage?._message_id;
+            if (messageId) {
+                state.wsMessageIds.add(messageId);
+            }
+            if (restoredMessage?.type && restoredMessage.type !== 'ping') {
+                handleWebSocketMessage(restoredMessage);
+            }
+        });
+        return;
+    }
+
+    const messageId = message._message_id;
+    if (messageId) {
+        if (state.wsMessageIds.has(messageId)) {
+            return;
+        }
+        state.wsMessageIds.add(messageId);
+    }
+
     switch (message.type) {
         case 'questions':
             // 分析完成，停止流式显示
@@ -1125,5 +1191,16 @@ function showFinalReport(data) {
 window.addEventListener('resize', () => {
     if (state.canvas) {
         resizeCanvas();
+    }
+});
+
+window.addEventListener('beforeunload', () => {
+    state.wsManuallyClosed = true;
+    if (state.wsReconnectTimer) {
+        clearTimeout(state.wsReconnectTimer);
+        state.wsReconnectTimer = null;
+    }
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.close(1000, 'page unloading');
     }
 });
