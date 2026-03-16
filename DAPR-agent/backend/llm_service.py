@@ -21,7 +21,7 @@ from openai import OpenAI, APIError, APITimeoutError
 from config import LLM_CONFIG
 
 class VideoUtils:
-    """视频工具类 - 基于 ffmpeg/ffprobe（优雅重构版）"""
+    """视频工具类 - 基于 ffmpeg/ffprobe"""
     
     @staticmethod
     def get_video_info(video_path: str) -> Dict:
@@ -895,7 +895,7 @@ DAPR（雨中人绘画测试）通过分析压力感知与应对资源的关系�
         
         variations = []
         
-        # 方法1: 直接解析
+        # 方法1: 直接解析S
         try:
             data = json.loads(cleaned)
             if isinstance(data, list) and len(data) > 0:

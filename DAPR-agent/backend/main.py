@@ -106,11 +106,28 @@ class ConnectionManager:
     def _subject_events_key(self, session_id: str) -> str:
         return f"{self.redis_prefix}:subject:{session_id}:events"
     
+    # 不缓存这些瞬态流式消息，避免填满队列并干扰恢复
+    _NON_CACHEABLE = frozenset({"ping", "connection_status"})
+    # analysis_stream 只缓存 started/complete，跳过 chunk
+    _STREAM_SKIP_STATUSES = frozenset({"chunk"})
+
     async def _cache_subject_message(self, session_id: str, message: dict):
         """缓存发给受试者的消息，用于断线重连恢复"""
         if not self.redis_enabled or not self.redis:
             return
-        
+
+        msg_type = message.get("type", "unknown")
+
+        # 跳过不需要恢复的消息类型
+        if msg_type in self._NON_CACHEABLE:
+            return
+
+        # analysis_stream chunk 数量极大，不缓存，只缓存 started/complete
+        if msg_type == "analysis_stream":
+            status = (message.get("data") or {}).get("status", "")
+            if status in self._STREAM_SKIP_STATUSES:
+                return
+
         payload = json.dumps({
             "stored_at": datetime.now().isoformat(),
             "message": message

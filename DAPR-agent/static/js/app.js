@@ -116,8 +116,11 @@ function bindEvents() {
     // 最终问题页
     elements['submit-final-btn'].addEventListener('click', submitFinalAnswers);
     
-    // 结果页
-    elements['restart-btn'].addEventListener('click', () => location.reload());
+    // 结果页：重新开始时清除会话存储，避免恢复到已完成的旧会话
+    elements['restart-btn'].addEventListener('click', () => {
+        sessionStorage.removeItem('dapr_session_id');
+        location.reload();
+    });
 }
 
 // 显示页面
@@ -137,19 +140,39 @@ function showPage(pageId) {
     elements[pageId].classList.add('active');
 }
 
-// 创建会话
+// 创建会话（支持浏览器刷新后恢复）
 async function createSession() {
     try {
+        // 检查是否有未完成的历史会话（浏览器刷新/Ctrl+R 恢复）
+        const savedId = sessionStorage.getItem('dapr_session_id');
+        if (savedId) {
+            try {
+                const checkResp = await fetch(`/api/session/${savedId}`);
+                if (checkResp.ok) {
+                    const sessionData = await checkResp.json();
+                    const resumableStatuses = ['analyzing', 'questioning', 'generating', 'selecting', 'final_analysis', 'final_questions'];
+                    if (resumableStatuses.includes(sessionData.status)) {
+                        console.log(`[Session] 恢复旧会话: ${savedId}, 状态: ${sessionData.status}`);
+                        state.sessionId = savedId;
+                        connectWebSocket(); // restore_context 会负责恢复页面状态
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('[Session] 检查旧会话失败，将创建新会话:', e);
+            }
+            sessionStorage.removeItem('dapr_session_id');
+        }
+
+        // 创建新会话
         const response = await fetch('/api/session/create', { method: 'POST' });
         const data = await response.json();
         state.sessionId = data.session_id;
-        
-        // 连接 WebSocket
+        sessionStorage.setItem('dapr_session_id', state.sessionId);
+
         connectWebSocket();
-        
-        // 显示引导文本
         elements['guidance-text'].textContent = data.guidance_text;
-        
+
     } catch (error) {
         console.error('创建会话失败:', error);
         alert('系统初始化失败，请刷新页面重试');
@@ -224,6 +247,11 @@ function handleWebSocketMessage(message) {
         if (state.ws && state.ws.readyState === WebSocket.OPEN) {
             state.ws.send(JSON.stringify({ type: 'pong', data: { ts: message?.data?.ts || null } }));
         }
+        return;
+    }
+
+    if (message.type === 'connection_status') {
+        // WebSocket 建立/重建确认，不需要额外处理
         return;
     }
 
