@@ -12,6 +12,8 @@ const state = {
     wsMessageIds: new Set(),
     webcamStream: null,
     screenStream: null,
+    canvasStream: null,
+    canvasRecordingEnabled: false,
     mediaRecorder: {
         webcam: null,
         screen: null
@@ -393,37 +395,17 @@ async function requestCameraPermission() {
 
 // 请求屏幕录制权限
 async function requestScreenPermission() {
-    try {
-        state.screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { cursor: 'always' },
-            audio: false
-        });
-        
-        elements['screen-video'].srcObject = state.screenStream;
-        
-        elements['screen-status'].textContent = '已授权';
-        elements['screen-status'].className = 'status granted';
-        
-        // 监听用户取消共享
-        state.screenStream.getVideoTracks()[0].onended = () => {
-            elements['screen-status'].textContent = '已停止';
-            elements['screen-status'].className = 'status denied';
-            state.screenStream = null;
-            checkPermissions();
-        };
-        
-        checkPermissions();
-    } catch (error) {
-        console.error('屏幕录制权限被拒绝:', error);
-        elements['screen-status'].textContent = '被拒绝';
-        elements['screen-status'].className = 'status denied';
-    }
+    // 不再请求系统录屏权限，改为记录画布变化
+    state.canvasRecordingEnabled = true;
+    elements['screen-status'].textContent = '已启用（记录画布变化）';
+    elements['screen-status'].className = 'status granted';
+    checkPermissions();
 }
 
 // 检查权限状态
 function checkPermissions() {
     const hasCamera = state.webcamStream !== null;
-    const hasScreen = state.screenStream !== null;
+    const hasScreen = state.canvasRecordingEnabled;
     
     elements['enter-drawing-btn'].disabled = !(hasCamera && hasScreen);
 }
@@ -476,8 +458,8 @@ function resizeCanvas() {
 
 // 开始录制
 async function startRecording() {
-    if (!state.webcamStream || !state.screenStream) {
-        alert('请先授权摄像头和屏幕录制');
+    if (!state.webcamStream || !state.canvasRecordingEnabled) {
+        alert('请先授权摄像头并启用画布录制');
         return;
     }
     
@@ -522,9 +504,11 @@ async function startRecording() {
         return;
     }
     
-    // 启动屏幕录制
+    // 启动画布录制（替代屏幕录制）
     try {
-        state.mediaRecorder.screen = new MediaRecorder(state.screenStream, {
+        // 记录画布内容变化（包含绘制过程）
+        state.canvasStream = state.canvas.captureStream(15);
+        state.mediaRecorder.screen = new MediaRecorder(state.canvasStream, {
             mimeType: 'video/webm;codecs=vp9'
         });
         state.mediaRecorder.screen.ondataavailable = (e) => {
@@ -540,10 +524,10 @@ async function startRecording() {
             console.log(`[录制] 屏幕录制停止，共 ${state.recordedChunks.screen.length} 个数据块`);
         };
         state.mediaRecorder.screen.start(1000);
-        console.log('[录制] 屏幕录制已启动');
+        console.log('[录制] 画布录制已启动');
     } catch (e) {
-        console.error('[录制] 屏幕录制启动失败:', e);
-        alert('屏幕录制启动失败');
+        console.error('[录制] 画布录制启动失败:', e);
+        alert('画布录制启动失败');
         return;
     }
 }
@@ -659,6 +643,10 @@ function stopRecordersSimultaneously() {
                 // 额外等待一小段时间确保数据写入
                 setTimeout(() => {
                     console.log(`[录制] 所有录制器已停止，摄像头数据块: ${state.recordedChunks.webcam.length}, 屏幕数据块: ${state.recordedChunks.screen.length}`);
+                    if (state.canvasStream) {
+                        state.canvasStream.getTracks().forEach(track => track.stop());
+                        state.canvasStream = null;
+                    }
                     resolve();
                 }, 200);
             }

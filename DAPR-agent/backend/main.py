@@ -61,7 +61,6 @@ class ConnectionManager:
         self.redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         # 心跳配置
         self.heartbeat_interval = int(os.environ.get("WS_HEARTBEAT_INTERVAL", "15"))
-        self.heartbeat_timeout = int(os.environ.get("WS_HEARTBEAT_TIMEOUT", "45"))
         self.heartbeat_task: Optional[asyncio.Task] = None
     
     async def init_redis(self):
@@ -255,38 +254,21 @@ class ConnectionManager:
         try:
             while True:
                 await asyncio.sleep(self.heartbeat_interval)
-                now = time.time()
                 ping_message = {"type": "ping", "data": {"ts": datetime.now().isoformat()}}
                 
-                dead_subjects: list[str] = []
                 for session_id, ws in list(self.subject_connections.items()):
-                    last_pong = self.subject_last_pong.get(session_id, 0)
-                    if now - last_pong > self.heartbeat_timeout:
-                        dead_subjects.append(session_id)
-                        continue
                     try:
                         await ws.send_json(ping_message)
                     except Exception:
-                        dead_subjects.append(session_id)
-                
-                for session_id in dead_subjects:
-                    print(f"[WebSocket] 清理受试者死连接: {session_id[:8]}...")
-                    self.disconnect_subject(session_id)
-                
-                dead_therapists: list[str] = []
+                        # 不再清理死连接（按需保留日志，便于排查）
+                        pass
+
                 for client_id, ws in list(self.therapist_connections.items()):
-                    last_pong = self.therapist_last_pong.get(client_id, 0)
-                    if now - last_pong > self.heartbeat_timeout:
-                        dead_therapists.append(client_id)
-                        continue
                     try:
                         await ws.send_json(ping_message)
                     except Exception:
-                        dead_therapists.append(client_id)
-                
-                for client_id in dead_therapists:
-                    print(f"[WebSocket] 清理咨询师死连接: {client_id[:8]}...")
-                    self.disconnect_therapist(client_id)
+                        # 不再清理死连接（按需保留日志，便于排查）
+                        pass
         except asyncio.CancelledError:
             pass
     
@@ -607,6 +589,16 @@ async def analyze_drawing_task_stream(session_id: str):
                 "avg_speed": f"{token_count/total_time:.2f} chars/s"
             }
         ))
+        
+        # 显式通知前端流式分析结束（即使 questions 为空也能退出分析态）
+        await manager.send_to_subject(session_id, {
+            "type": "analysis_stream",
+            "data": {
+                "status": "complete",
+                "total_tokens": token_count,
+                "total_time": f"{total_time:.2f}s"
+            }
+        })
         
         # 发送给用户的问题
         await manager.send_to_subject(session_id, {
