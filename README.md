@@ -494,6 +494,7 @@ pip install -r requirements.txt
 # 下载模型权重（已预置在项目 ComfyUI/models/ 目录中）
 # diffusion_models/flux-2-klein-4b-fp8.safetensors  (3.8GB)
 # text_encoders/qwen_3_4b_fp4_flux2.safetensors      (3.6GB, FP4)
+#   下载地址: https://huggingface.co/Comfy-Org/vae-text-encorder-for-flux-klein-4b/tree/main/split_files/text_encoders
 # text_encoders/qwen_3_4b.safetensors                (7.5GB, 备用)
 # vae/flux2-vae.safetensors                          (321MB)
 
