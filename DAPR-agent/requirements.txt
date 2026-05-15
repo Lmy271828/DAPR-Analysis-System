@@ -13,3 +13,4 @@ accelerate
 
 git+https://github.com/huggingface/diffusers
 cryptography>=42.0.0
+aiohttp>=3.9.0

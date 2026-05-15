@@ -30,7 +30,7 @@ from config import (
 )
 from models import Session, SessionStatus, TherapistLog
 from llm_service import create_llm_service
-from image_service import get_image_service
+from image_service import get_image_service, close_image_service
 
 
 
@@ -299,6 +299,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     await manager.stop()
+    await close_image_service()
 
 
 # 请求模型
@@ -706,12 +707,13 @@ async def generate_images_task(session_id: str):
     )
     log_to_therapist(log)
     
-    # 生成图像
+    # 生成图像（异步批量提交 + 并行轮询 + 自动预热）
     output_dir = OUTPUTS_DIR / session_id
-    generated = image_service.generate_variations(
+    generated = await image_service.generate_variations_async(
         input_image_path=session.drawing_image,
         variations=variations,
-        output_dir=str(output_dir)
+        output_dir=str(output_dir),
+        do_warmup=True,
     )
     
     session.generated_images = generated
