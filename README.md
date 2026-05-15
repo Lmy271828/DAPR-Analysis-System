@@ -69,7 +69,8 @@
 |------|------|
 | **main.py** | FastAPI主服务，提供REST API和WebSocket接口，管理会话生命周期 |
 | **llm_service.py** | Kimi-K2.5 LLM服务，处理多模态输入(图像+视频)，生成艺术观察、开放式提问、编辑指令和创作反馈 |
-| **image_service.py** | ComfyUI图像生成服务，调用FLUX.2模型生成绘画变体 |
+| **image_service.py** | ComfyUI异步图像生成服务，批量提交+并行轮询，FP4量化降低显存占用 |
+| **scripts/comfyui_start.sh** | ComfyUI 启动脚本，`--highvram` 模式保持模型常驻显存 |
 | **models.py** | 数据模型定义，包括会话状态管理和数据持久化 |
 | **config.py** | 系统配置，包括LLM、ComfyUI、画布、视频等配置参数 |
 
@@ -80,7 +81,8 @@
 | **后端框架** | FastAPI, Python 3.12 |
 | **实时通信** | WebSocket |
 | **LLM** | Kimi-K2.5 (Moonshot AI) |
-| **图像生成** | FLUX.2 Klein 4B Distill (ComfyUI) |
+| **图像生成** | FLUX.2 Klein 4B FP8 + Qwen3-4B FP4 (ComfyUI) |
+| **HTTP 客户端** | aiohttp (异步连接池) |
 | **前端** | Vanilla JS, Canvas API, MediaRecorder API |
 | **数据存储** | 本地JSON文件存储 |
 | **视频处理** | ffmpeg/ffprobe |
@@ -441,9 +443,9 @@ class Session:
 |------|------|
 | **操作系统** | Windows 10/11 或 Linux（推荐） |
 | **Python** | 3.12 |
-| **GPU** | NVIDIA GPU（需要本地运行ComfyUI工作流） |
+| **GPU** | NVIDIA GPU，显存 ≥ 8GB（RTX 3060/4060/5060 等） |
 | **内存** | 建议16GB以上 |
-| **存储空间** | 建议10GB以上（用于存储会话数据和生成图像） |
+| **存储空间** | 建议10GB以上（模型权重约 7.5GB + 会话数据） |
 
 #### 3.1.2 获取Kimi API Key
 
@@ -454,6 +456,8 @@ class Session:
 
 ```bash
 export MOONSHOT_API_KEY='your-kimi-api-key'
+export DAPR_ENCRYPTION_KEY='your-32-byte-base64-key'  # 本地数据加密密钥
+# 生成密钥：python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
 ### 3.2 安装步骤
@@ -487,16 +491,20 @@ git clone https://github.com/Comfy-Org/ComfyUI.git
 cd ComfyUI
 pip install -r requirements.txt
 
-# 启动ComfyUI
-python main.py
+# 下载模型权重（已预置在项目 ComfyUI/models/ 目录中）
+# diffusion_models/flux-2-klein-4b-fp8.safetensors  (3.8GB)
+# text_encoders/qwen_3_4b_fp4_flux2.safetensors      (3.6GB, FP4)
+# text_encoders/qwen_3_4b.safetensors                (7.5GB, 备用)
+# vae/flux2-vae.safetensors                          (321MB)
+
+# 启动ComfyUI（高显存模式，模型常驻显存）
+bash DAPR-agent/scripts/comfyui_start.sh
 ```
 
-#### 步骤5：导入工作流
+#### 步骤5：验证工作流
 
-1. 在ComfyUI界面中，按 `Ctrl+O` 打开文件选择对话框
-2. 选择 `color_the_dapr_doodle_api.json` 文件导入
-3. 按照指引配置缺失的模型权重（FLUX.2 Klein 4B）
-4. 确保ComfyUI服务运行在 `127.0.0.1:8188`
+工作流文件 `color_the_dapr_doodle_api.json` 已预置在项目根目录，后端会自动加载。无需手动导入 ComfyUI 界面。
+确保 ComfyUI 服务运行在 `127.0.0.1:8188`。
 
 ### 3.3 启动服务
 
@@ -660,7 +668,9 @@ CANVAS_CONFIG = {
 | 问题 | 解决方案 |
 |------|----------|
 | **内容生成失败** | 确认 MOONSHOT_API_KEY 已正确设置 |
-| **ComfyUI连接失败** | 确认ComfyUI服务已启动，检查config.py中的地址配置 |
+| **ComfyUI连接失败** | 确认ComfyUI服务已启动，检查config.py中的地址配置。若显存不足，尝试切换 FP4 text encoder (`qwen_3_4b_fp4_flux2.safetensors`) |
+| **显存OOM** | 确认使用 FP4 encoder（`qwen_3_4b_fp4_flux2.safetensors`，3.6GB），而非 FP16（`qwen_3_4b.safetensors`，7.5GB）。8GB显存即可运行 |
+| **密钥未设置** | 确认 `DAPR_ENCRYPTION_KEY` 环境变量已正确设置，否则会话数据无法保存 |
 | **视频录制失败** | 确保使用HTTPS或localhost，检查浏览器权限设置 |
 | **观察伙伴界面文字显示异常** | 检查kimi是否按指定的JSON格式输出回答 |
 
@@ -690,5 +700,5 @@ MIT License
 
 ---
 
-*文档版本: 1.0*  
-*最后更新: 2026-03-13*
+*文档版本: 1.1*  
+*最后更新: 2026-05-15*
