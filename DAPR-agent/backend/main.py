@@ -31,6 +31,7 @@ from config import (
 from models import Session, SessionStatus, TherapistLog
 from llm_service import create_llm_service
 from image_service import get_image_service, close_image_service
+from database import setup_database
 
 
 
@@ -232,7 +233,8 @@ class ConnectionManager:
         
         if session_id in self.subject_connections:
             try:
-                await self.subject_connections[session_id].send_json(payload)
+                ws = self.subject_connections[session_id]
+                await ws.send_json(payload)
             except Exception:
                 self.disconnect_subject(session_id)
     
@@ -255,20 +257,38 @@ class ConnectionManager:
             while True:
                 await asyncio.sleep(self.heartbeat_interval)
                 ping_message = {"type": "ping", "data": {"ts": datetime.now().isoformat()}}
+                now = time.time()
                 
+                # 清理超时受试者连接（3次心跳无pong）
+                timeout_threshold = self.heartbeat_interval * 3
                 for session_id, ws in list(self.subject_connections.items()):
                     try:
+                        last_pong = self.subject_last_pong.get(session_id, 0)
+                        if now - last_pong > timeout_threshold:
+                            try:
+                                await ws.close(code=1001)
+                            except Exception:
+                                pass
+                            self.disconnect_subject(session_id)
+                            continue
                         await ws.send_json(ping_message)
                     except Exception:
-                        # 不再清理死连接（按需保留日志，便于排查）
-                        pass
+                        self.disconnect_subject(session_id)
 
+                # 清理超时咨询师连接
                 for client_id, ws in list(self.therapist_connections.items()):
                     try:
+                        last_pong = self.therapist_last_pong.get(client_id, 0)
+                        if now - last_pong > timeout_threshold:
+                            try:
+                                await ws.close(code=1001)
+                            except Exception:
+                                pass
+                            self.disconnect_therapist(client_id)
+                            continue
                         await ws.send_json(ping_message)
                     except Exception:
-                        # 不再清理死连接（按需保留日志，便于排查）
-                        pass
+                        self.disconnect_therapist(client_id)
         except asyncio.CancelledError:
             pass
     
@@ -293,6 +313,7 @@ manager = ConnectionManager()
 
 @app.on_event("startup")
 async def startup_event():
+    setup_database()
     await manager.start()
 
 
@@ -536,8 +557,8 @@ async def analyze_drawing_task_stream(session_id: str):
             token_count += len(chunk)
             elapsed = time.time() - start_time
             
-            # 每5个字符更新一次
-            if token_count - last_update >= 5:
+            # 每30个字符更新一次（节流，减少网络开销）
+            if token_count - last_update >= 30:
                 speed = token_count / elapsed if elapsed > 0 else 0
                 
                 # 发送给咨询师面板
@@ -1237,4 +1258,14 @@ async def preview_history_session(session_id: str):
 # ==================== 主程序入口 ====================
 
 if __name__ == "__main__":
-    uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT)
+    ssl_config = {}
+    if os.environ.get("ENABLE_HTTPS", "").lower() in ("true", "1", "yes"):
+        cert_file = os.environ.get("SSL_CERT_FILE", "backend/cert/cert.pem")
+        key_file = os.environ.get("SSL_KEY_FILE", "backend/cert/key.pem")
+        if os.path.exists(cert_file) and os.path.exists(key_file):
+            ssl_config = {"ssl_keyfile": key_file, "ssl_certfile": cert_file}
+            print(f"[Server] HTTPS 已启用: cert={cert_file}, key={key_file}")
+        else:
+            print(f"[Server] 警告: ENABLE_HTTPS=true 但证书文件不存在，回退到 HTTP")
+            print(f"         生成自签名证书: openssl req -x509 -newkey rsa:4096 -keyout {key_file} -out {cert_file} -days 365 -nodes")
+    uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT, **ssl_config)

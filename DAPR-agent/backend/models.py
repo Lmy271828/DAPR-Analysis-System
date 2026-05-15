@@ -68,12 +68,49 @@ class Session:
         data['status'] = self.status.value
         return data
     
-    def save(self, sessions_dir: str):
-        """保存会话到文件"""
+    def save(self, sessions_dir: str = None):
+        """保存会话到数据库（sessions_dir 参数保留用于向后兼容）"""
+        try:
+            from db_models import get_session_local, _encrypt_field, SessionModel
+            db = get_session_local()()
+            try:
+                data = self.to_dict()
+                row = SessionModel(
+                    id=self.id,
+                    created_at=self.created_at if isinstance(self.created_at, str) else datetime.now().isoformat(),
+                    status=self.status.value,
+                    age_group=self.age_group,
+                    gender=self.gender,
+                    consent_given=self.consent_given,
+                    drawing_image=self.drawing_image,
+                    webcam_video=self.webcam_video,
+                    screen_video=self.screen_video,
+                    initial_analysis=self.initial_analysis,
+                    questions_asked=self.questions_asked or [],
+                    user_answers=_encrypt_field(self.user_answers),
+                    hypotheses=self.hypotheses or [],
+                    generated_images=self.generated_images or [],
+                    selected_image_id=self.selected_image_id,
+                    selection_behavior=self.selection_behavior,
+                    final_questions=self.final_questions or [],
+                    final_answers=_encrypt_field(self.final_answers),
+                    final_analysis=self.final_analysis,
+                )
+                db.merge(row)
+                db.commit()
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"[Session] 数据库保存失败，回退到本地 JSON: {e}")
+            self._save_fallback(sessions_dir)
+    
+    def _save_fallback(self, sessions_dir: str = None):
+        """数据库失败时的本地 JSON 回退"""
+        if sessions_dir is None:
+            from config import SESSIONS_DIR
+            sessions_dir = str(SESSIONS_DIR)
         filepath = f"{sessions_dir}/{self.id}.json"
         data = self.to_dict()
-        
-        # 加密敏感字段
         fernet = _get_fernet()
         if fernet:
             for field_name in _ENCRYPTED_FIELDS:
@@ -81,21 +118,57 @@ class Session:
                     raw = json.dumps(data[field_name], ensure_ascii=False)
                     encrypted = fernet.encrypt(raw.encode()).decode()
                     data[field_name] = f"enc:{encrypted}"
-        else:
-            print("[Session] 警告: DAPR_ENCRYPTION_KEY 未设置，敏感字段以明文存储")
-        
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     
     @classmethod
-    def load(cls, session_id: str, sessions_dir: str) -> Optional['Session']:
-        """从文件加载会话"""
+    def load(cls, session_id: str, sessions_dir: str = None) -> Optional['Session']:
+        """从数据库加载会话（sessions_dir 参数保留用于向后兼容）"""
+        try:
+            from db_models import get_session_local, _decrypt_field, SessionModel
+            db = get_session_local()()
+            try:
+                row = db.query(SessionModel).filter(SessionModel.id == session_id).first()
+                if not row:
+                    return cls._load_fallback(session_id, sessions_dir)
+                
+                return cls(
+                    id=row.id,
+                    created_at=row.created_at.isoformat() if hasattr(row.created_at, 'isoformat') else str(row.created_at),
+                    status=SessionStatus(row.status),
+                    age_group=row.age_group,
+                    gender=row.gender,
+                    consent_given=row.consent_given,
+                    drawing_image=row.drawing_image,
+                    webcam_video=row.webcam_video,
+                    screen_video=row.screen_video,
+                    initial_analysis=row.initial_analysis,
+                    questions_asked=row.questions_asked or [],
+                    user_answers=_decrypt_field(row.user_answers) or [],
+                    hypotheses=row.hypotheses or [],
+                    generated_images=row.generated_images or [],
+                    selected_image_id=row.selected_image_id,
+                    selection_behavior=row.selection_behavior,
+                    final_questions=row.final_questions or [],
+                    final_answers=_decrypt_field(row.final_answers) or [],
+                    final_analysis=row.final_analysis,
+                )
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"[Session] 数据库加载失败，回退到本地 JSON: {e}")
+            return cls._load_fallback(session_id, sessions_dir)
+    
+    @classmethod
+    def _load_fallback(cls, session_id: str, sessions_dir: str = None) -> Optional['Session']:
+        """数据库失败时的本地 JSON 回退"""
+        if sessions_dir is None:
+            from config import SESSIONS_DIR
+            sessions_dir = str(SESSIONS_DIR)
         filepath = f"{sessions_dir}/{session_id}.json"
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
-            # 解密敏感字段
             fernet = _get_fernet()
             for field_name in _ENCRYPTED_FIELDS:
                 if field_name in data and isinstance(data[field_name], str) and data[field_name].startswith("enc:"):
@@ -104,10 +177,8 @@ class Session:
                         decrypted = fernet.decrypt(encrypted.encode()).decode()
                         data[field_name] = json.loads(decrypted)
                     else:
-                        print(f"[Session] 警告: 检测到加密字段 {field_name} 但 DAPR_ENCRYPTION_KEY 未设置")
                         data[field_name] = None
-            
-            session = cls(
+            return cls(
                 id=data['id'],
                 created_at=data['created_at'],
                 status=SessionStatus(data['status']),
@@ -128,7 +199,6 @@ class Session:
                 final_answers=data.get('final_answers', []),
                 final_analysis=data.get('final_analysis'),
             )
-            return session
         except (FileNotFoundError, KeyError, ValueError):
             return None
 
