@@ -385,18 +385,22 @@ class ConversationManager:
 
 class KimiService:
     """
-    Kimi-K2.5 API 服务
+    Kimi-K2.5 API 服务 —— 每会话独立实例
     
-    用于 DAPR (雨中人绘画测试) 的心理分析，包括：
-    - 绘画作品分析（图像 + 视频）
+    每个会话拥有独立的 KimiService 实例，确保对话历史、
+    上下文记忆在不同用户之间完全隔离，避免会话污染。
+    
+    职责：
+    - 绘画作品观察描述（图像 + 视频）
     - 生成图像编辑指令
     - 生成后续问题
-    - 生成最终心理分析报告
+    - 生成艺术创作反馈报告
     
     Note: 图像生成使用本地 ComfyUI，不在此类中
     """
     
-    def __init__(self):
+    def __init__(self, session_id: str = "default"):
+        self.session_id = session_id
         self.api_key = LLM_CONFIG.get("api_key", "")
         self.base_url = LLM_CONFIG.get("base_url", "https://api.moonshot.cn/v1")
         self.model = LLM_CONFIG.get("model", "kimi-k2.5")
@@ -407,7 +411,7 @@ class KimiService:
         if not self.api_key:
             print("[LLM] 警告: MOONSHOT_API_KEY 未设置，请在环境变量中配置")
         
-        # 初始化对话管理器
+        # 初始化对话管理器（每实例独立，避免会话间污染）
         self.conversation = ConversationManager(
             max_context_length=self.max_tokens * 8,
             max_keep_turns=20
@@ -1626,12 +1630,19 @@ DAPR（Draw-A-Person-in-the-Rain）是基于精神分析投射理论的经典心
         print("[LLM] 对话历史已清空")
 
 
-# 单例模式
-_llm_service = None
-
-def get_llm_service() -> KimiService:
-    """获取 LLM 服务实例"""
-    global _llm_service
-    if _llm_service is None:
-        _llm_service = KimiService()
-    return _llm_service
+def create_llm_service(session_id: str) -> KimiService:
+    """
+    创建一个新的、会话隔离的 LLM 服务实例
+    
+    重要：每次处理新会话时必须调用此工厂函数创建新实例，
+    禁止在不同会话之间复用同一个 KimiService 实例，
+    否则会导致对话历史泄漏（会话污染）。
+    
+    Args:
+        session_id: 会话唯一标识，用于日志追踪和隔离确认
+        
+    Returns:
+        KimiService: 绑定到指定会话的独立服务实例
+    """
+    print(f"[LLM] 为会话 {session_id[:8]}... 创建独立的 KimiService 实例")
+    return KimiService(session_id=session_id)

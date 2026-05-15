@@ -29,7 +29,7 @@ from config import (
     AGE_GROUPS, GENDER_OPTIONS
 )
 from models import Session, SessionStatus, TherapistLog
-from llm_service import get_llm_service
+from llm_service import create_llm_service
 from image_service import get_image_service
 
 
@@ -500,7 +500,7 @@ async def analyze_drawing_task_stream(session_id: str):
             return
         
         print(f"[Analysis Stream] 开始流式分析: {session_id}")
-        llm = get_llm_service()
+        llm = create_llm_service(session_id)
         
         # 发送开始消息
         await manager.broadcast_log(TherapistLog(
@@ -647,7 +647,7 @@ async def submit_answers(request: AnswerRequest, background_tasks: BackgroundTas
     questions = [q.get("question", "") for q in session.questions_asked] if session.questions_asked else []
     
     # 保存问答到LLM对话历史（用于最终报告生成）
-    llm = get_llm_service()
+    llm = create_llm_service(request.session_id)
     qa_text = "\n\n".join([f"Q: {q}\nA: {a}" for q, a in zip(questions, request.answers)])
     llm.conversation.add_message("user", f"【用户回答】\n{qa_text}")
     
@@ -682,7 +682,7 @@ async def generate_images_task(session_id: str):
     if not session:
         return
     
-    llm = get_llm_service()
+    llm = create_llm_service(session_id)
     image_service = get_image_service()
     
     # 生成编辑指令（传入绘画分析以实现自适应风格）
@@ -801,7 +801,7 @@ async def final_analysis_task(session_id: str):
         return
     
     print(f"[Final Analysis] 开始生成最终问题: {session_id}")
-    llm = get_llm_service()
+    llm = create_llm_service(session_id)
     
     # 找到选中的图像
     selected_image = None
@@ -862,7 +862,7 @@ async def generate_final_report_task(session_id: str):
         return
     
     print(f"[Final Report] 开始生成最终报告: {session_id}")
-    llm = get_llm_service()
+    llm = create_llm_service(session_id)
     
     # 找到选中的图像
     selected_image = None
@@ -933,7 +933,7 @@ async def submit_final_answers(request: FinalAnswerRequest, background_tasks: Ba
     print(f"[Final Answers] 收到最终回答: {request.answers}")
     
     # 保存最终问答到对话历史
-    llm = get_llm_service()
+    llm = create_llm_service(request.session_id)
     final_qa_text = "\n\n".join([f"Q: {q}\nA: {a}" for q, a in zip(session.final_questions, request.answers)])
     llm.conversation.add_message("user", f"【最终问题回答】\n{final_qa_text}")
     
