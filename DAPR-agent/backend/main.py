@@ -32,6 +32,8 @@ from models import Session, SessionStatus, TherapistLog
 from llm_service import create_llm_service
 from image_service import get_image_service, close_image_service
 from database import setup_database
+from agent import AgentOrchestrator, ToolWrapper, NotifyUserTool
+from agent.plan import plan_after_drawing, plan_after_answers, plan_after_selection, plan_after_final_answers
 
 
 
@@ -310,11 +312,23 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# Agent Orchestrator（全局单例）
+orchestrator = AgentOrchestrator()
+
 
 @app.on_event("startup")
 async def startup_event():
     setup_database()
     await manager.start()
+    
+    # 注册 Agent Tools
+    orchestrator.set_manager(manager)
+    orchestrator.register_tool(ToolWrapper("AnalyzeDrawingTool", analyze_drawing_task_stream, max_retries=2))
+    orchestrator.register_tool(ToolWrapper("GenerateImageTool", generate_images_task, max_retries=2))
+    orchestrator.register_tool(ToolWrapper("AskFollowUpTool", final_analysis_task, max_retries=2))
+    orchestrator.register_tool(ToolWrapper("GenerateReportTool", generate_final_report_task, max_retries=2))
+    orchestrator.register_tool(NotifyUserTool(manager))
+    print("[Agent] Orchestrator 初始化完成，已注册 5 个 Tools")
 
 
 @app.on_event("shutdown")
@@ -508,8 +522,9 @@ async def start_analysis(session_id: str, background_tasks: BackgroundTasks):
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
     
-    # 异步执行分析（使用流式版本）
-    background_tasks.add_task(analyze_drawing_task_stream, session_id)
+    # 异步执行分析（Agent Plan 编排）
+    plan = plan_after_drawing(session_id)
+    asyncio.create_task(orchestrator.submit_plan(session_id, plan))
     
     return {"status": "analysis_started"}
 
@@ -693,8 +708,9 @@ async def submit_answers(request: AnswerRequest, background_tasks: BackgroundTas
     log_to_therapist(log)
     print(f"[Answers] 记录用户回答: session={request.session_id[:8]}..., 问题数={len(questions)}, 回答数={len(request.answers)}")
     
-    # 异步生成图像
-    background_tasks.add_task(generate_images_task, request.session_id)
+    # 异步生成图像（Agent Plan 编排）
+    plan = plan_after_answers(request.session_id)
+    asyncio.create_task(orchestrator.submit_plan(request.session_id, plan))
     
     return {"status": "generating_started"}
 
@@ -812,8 +828,9 @@ async def select_image(session_id: str, request: SelectImageRequest, background_
         log_to_therapist(log)
         print(f"[Selection] 记录选择行为: session={session_id[:8]}..., 犹豫指标数={len(request.selection_behavior.get('hesitationIndicators', []))}")
     
-    # 异步进行最终分析
-    background_tasks.add_task(final_analysis_task, request.session_id)
+    # 异步进行最终分析（Agent Plan 编排）
+    plan = plan_after_selection(request.session_id)
+    asyncio.create_task(orchestrator.submit_plan(request.session_id, plan))
     
     return {"status": "final_analysis_started"}
 
@@ -969,8 +986,9 @@ async def submit_final_answers(request: FinalAnswerRequest, background_tasks: Ba
         behavior_text += f"犹豫指标: {len(sel.get('hesitationIndicators', []))}个"
         llm.conversation.add_message("system", behavior_text)
     
-    # 异步生成最终报告
-    background_tasks.add_task(generate_final_report_task, request.session_id)
+    # 异步生成最终报告（Agent Plan 编排）
+    plan = plan_after_final_answers(request.session_id)
+    asyncio.create_task(orchestrator.submit_plan(request.session_id, plan))
     
     return {"status": "final_report_generating"}
 
@@ -1213,8 +1231,9 @@ async def analyze_history_session(request: HistoryAnalyzeRequest, background_tas
             target_session_id = request.session_id
             print(f"[History] 复用历史会话 {target_session_id} 进行分析")
         
-        # 启动流式分析任务
-        background_tasks.add_task(analyze_drawing_task_stream, target_session_id)
+        # 启动流式分析任务（Agent Plan 编排）
+        plan = plan_after_drawing(target_session_id)
+        asyncio.create_task(orchestrator.submit_plan(target_session_id, plan))
         
         return {
             "status": "analysis_started",

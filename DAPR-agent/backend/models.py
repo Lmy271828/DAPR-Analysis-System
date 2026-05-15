@@ -62,6 +62,9 @@ class Session:
     # 最终分析
     final_analysis: Optional[Dict] = None
     
+    # Agent 执行状态（Plan Engine 持久化）
+    agent_state: Optional[Dict] = None
+    
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         data = asdict(self)
