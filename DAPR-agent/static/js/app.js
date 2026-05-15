@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // 初始化DOM元素引用
 function initElements() {
     const ids = [
+        'consent-modal', 'consent-checkbox', 'consent-btn',
         'guidance-page', 'permission-page', 'drawing-page', 'analyzing-page',
         'questioning-page', 'generating-page', 'selecting-page', 'image-preview-page', 'final-question-page', 
         'final-report-page', 'result-page',
@@ -87,6 +88,21 @@ function initElements() {
 
 // 绑定事件
 function bindEvents() {
+    // 知情同意弹窗
+    elements['consent-checkbox'].addEventListener('change', (e) => {
+        elements['consent-btn'].disabled = !e.target.checked;
+    });
+    elements['consent-btn'].addEventListener('click', async () => {
+        try {
+            await fetch(`/api/session/${state.sessionId}/consent`, { method: 'POST' });
+        } catch (e) {
+            console.warn('[Consent] 发送同意状态失败:', e);
+        }
+        elements['consent-modal'].classList.remove('active');
+        showPage('guidance-page');
+        sessionStorage.setItem('dapr_consent_given', 'true');
+    });
+
     // 引导页
     elements['start-btn'].addEventListener('click', () => showPage('permission-page'));
     
@@ -174,6 +190,14 @@ async function createSession() {
 
         connectWebSocket();
         elements['guidance-text'].textContent = data.guidance_text;
+
+        // 检查是否已同意（同一会话刷新场景）
+        const consentGiven = sessionStorage.getItem('dapr_consent_given') === 'true';
+        const savedSessionId = sessionStorage.getItem('dapr_session_id');
+        if (consentGiven && savedSessionId === state.sessionId) {
+            elements['consent-modal'].classList.remove('active');
+            showPage('guidance-page');
+        }
 
     } catch (error) {
         console.error('创建会话失败:', error);

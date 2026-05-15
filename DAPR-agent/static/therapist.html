@@ -866,23 +866,31 @@
                 
                 ${session.final_analysis ? `
                 <div class="detail-section">
-                    <h3>最终分析</h3>
+                    <h3>创作回顾</h3>
                     <div class="detail-item">
-                        <div class="detail-label">总结</div>
-                        <div class="detail-value">${session.final_analysis.summary || '无'}</div>
+                        <div class="detail-label">整体感受</div>
+                        <div class="detail-value" style="white-space: pre-wrap; line-height: 1.6;">${session.final_analysis.summary || '无'}</div>
                     </div>
+                    ${(session.final_analysis.creative_insights && session.final_analysis.creative_insights.length > 0) ? `
                     <div class="detail-item">
-                        <div class="detail-label">压力水平</div>
-                        <div class="detail-value">${session.final_analysis.stress_level || '未评估'}</div>
+                        <div class="detail-label">创作洞察</div>
+                        <div class="detail-value">
+                            <ul style="margin: 0; padding-left: 18px;">
+                                ${session.final_analysis.creative_insights.map(i => `<li style="margin: 6px 0; white-space: pre-wrap; line-height: 1.5;">${i}</li>`).join('')}
+                            </ul>
+                        </div>
                     </div>
+                    ` : ''}
+                    ${(session.final_analysis.suggested_explorations && session.final_analysis.suggested_explorations.length > 0) ? `
                     <div class="detail-item">
-                        <div class="detail-label">应对方式</div>
-                        <div class="detail-value">${session.final_analysis.coping_style || '未评估'}</div>
+                        <div class="detail-label">探索建议</div>
+                        <div class="detail-value">
+                            <ul style="margin: 0; padding-left: 18px;">
+                                ${session.final_analysis.suggested_explorations.map(i => `<li style="margin: 6px 0; white-space: pre-wrap; line-height: 1.5;">${i}</li>`).join('')}
+                            </ul>
+                        </div>
                     </div>
-                    <div class="detail-item">
-                        <div class="detail-label">情绪状态</div>
-                        <div class="detail-value">${session.final_analysis.emotional_state || '未评估'}</div>
-                    </div>
+                    ` : ''}
                 </div>
                 ` : ''}
             `;
@@ -1286,88 +1294,40 @@
                 case 'final_report':
                     if (log.llm_output) {
                         const r = log.llm_output;
-                        const deep = r.deep_analysis || {};
+                        const insights = r.creative_insights || r.key_insights || [];
+                        const explorations = r.suggested_explorations || r.recommendations || [];
                         
                         sections.push(`
                             <div class="log-section">
-                                <div class="log-section-title">📋 最终心理分析报告</div>
+                                <div class="log-section-title">🎨 创作回顾</div>
                                 <div class="log-content readable">
                                     ${r.summary ? `
                                         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                                            <p style="margin:0;color:white;font-size:1.05rem;"><strong>📊 综合分析</strong></p>
+                                            <p style="margin:0;color:white;font-size:1.05rem;"><strong>💬 整体感受</strong></p>
                                             <p style="margin:10px 0 0 0;color:white;line-height:1.6;white-space:pre-wrap;">${decodeEscapedChars(r.summary)}</p>
                                         </div>
                                     ` : ''}
                                     
-                                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:15px;">
-                                        ${r.stress_level ? `
-                                            <div style="background:#16213e;padding:12px;border-radius:6px;border-left:4px solid #e94560;">
-                                                <p style="margin:0;color:#888;font-size:0.85rem;">压力水平</p>
-                                                <p style="margin:5px 0 0 0;color:#eee;white-space:pre-wrap;">${decodeEscapedChars(r.stress_level)}</p>
-                                            </div>
-                                        ` : ''}
-                                        ${r.coping_style ? `
-                                            <div style="background:#16213e;padding:12px;border-radius:6px;border-left:4px solid #17a2b8;">
-                                                <p style="margin:0;color:#888;font-size:0.85rem;">应对方式</p>
-                                                <p style="margin:5px 0 0 0;color:#eee;white-space:pre-wrap;">${decodeEscapedChars(r.coping_style)}</p>
-                                            </div>
-                                        ` : ''}
-                                        ${r.emotional_state ? `
-                                            <div style="background:#16213e;padding:12px;border-radius:6px;border-left:4px solid #ffc107;">
-                                                <p style="margin:0;color:#888;font-size:0.85rem;">情绪状态</p>
-                                                <p style="margin:5px 0 0 0;color:#eee;white-space:pre-wrap;">${decodeEscapedChars(r.emotional_state)}</p>
-                                            </div>
-                                        ` : ''}
-                                    </div>
-                                    
-                                    ${r.selection_interpretation ? `
-                                        <div style="background:#fff3e0;padding:12px;border-radius:6px;margin-bottom:15px;border-left:4px solid #ff9800;">
-                                            <p style="margin:0;color:#e65100;"><strong>🎯 选择行为解读</strong></p>
-                                            <p style="margin:8px 0 0 0;color:#333;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(r.selection_interpretation)}</p>
-                                        </div>
-                                    ` : ''}
-                                    
-                                    ${r.key_insights?.length ? `
-                                        <div style="margin-bottom:15px;">
-                                            <p style="color:#aaa;font-size:0.9rem;margin-bottom:8px;"><strong>💡 关键发现</strong></p>
-                                            <ul style="margin:0;padding-left:20px;">
-                                                ${r.key_insights.map(i => `<li style="margin:6px 0;color:#ddd;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(i)}</li>`).join('')}
+                                    ${insights.length ? `
+                                        <div style="margin-bottom: 15px;">
+                                            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 8px;"><strong>💡 创作洞察</strong></p>
+                                            <ul style="margin: 0; padding-left: 20px;">
+                                                ${insights.map(i => `<li style="margin: 6px 0; color: #ddd; line-height: 1.5; white-space: pre-wrap;">${decodeEscapedChars(i)}</li>`).join('')}
                                             </ul>
                                         </div>
                                     ` : ''}
                                     
-                                    ${(deep.self_concept || deep.interpersonal || deep.stress_response || deep.underlying_needs) ? `
-                                        <div style="background:#0f3460;padding:15px;border-radius:8px;margin-bottom:15px;">
-                                            <p style="margin:0 0 10px 0;color:#e94560;font-size:0.95rem;"><strong>🔍 深度心理分析</strong></p>
-                                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
-                                                ${deep.self_concept ? `<div><p style="margin:0;color:#888;font-size:0.8rem;">自我概念</p><p style="margin:5px 0 0 0;color:#ccc;font-size:0.9rem;white-space:pre-wrap;line-height:1.4;">${decodeEscapedChars(deep.self_concept)}</p></div>` : ''}
-                                                ${deep.interpersonal ? `<div><p style="margin:0;color:#888;font-size:0.8rem;">人际关系</p><p style="margin:5px 0 0 0;color:#ccc;font-size:0.9rem;white-space:pre-wrap;line-height:1.4;">${decodeEscapedChars(deep.interpersonal)}</p></div>` : ''}
-                                                ${deep.stress_response ? `<div><p style="margin:0;color:#888;font-size:0.8rem;">压力反应</p><p style="margin:5px 0 0 0;color:#ccc;font-size:0.9rem;white-space:pre-wrap;line-height:1.4;">${decodeEscapedChars(deep.stress_response)}</p></div>` : ''}
-                                                ${deep.underlying_needs ? `<div><p style="margin:0;color:#888;font-size:0.8rem;">潜在需求</p><p style="margin:5px 0 0 0;color:#ccc;font-size:0.9rem;white-space:pre-wrap;line-height:1.4;">${decodeEscapedChars(deep.underlying_needs)}</p></div>` : ''}
-                                            </div>
-                                        </div>
-                                    ` : ''}
-                                    
-                                    ${r.recommendations?.length ? `
-                                        <div style="margin-bottom:15px;">
-                                            <p style="color:#aaa;font-size:0.9rem;margin-bottom:8px;"><strong>💪 专业建议</strong></p>
-                                            <div style="display:flex;flex-direction:column;gap:8px;">
-                                                ${r.recommendations.map((rec, i) => `
-                                                    <div style="background:#e8f5e9;padding:10px 12px;border-radius:6px;border-left:4px solid #4caf50;">
-                                                        <span style="background:#4caf50;color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin-right:8px;">${i+1}</span>
-                                                        <span style="color:#2e7d32;white-space:pre-wrap;line-height:1.4;">${decodeEscapedChars(rec)}</span>
+                                    ${explorations.length ? `
+                                        <div>
+                                            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 8px;"><strong>🌱 探索建议</strong></p>
+                                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                                ${explorations.map((rec, i) => `
+                                                    <div style="background: #e8f5e9; padding: 10px 12px; border-radius: 6px; border-left: 4px solid #4caf50;">
+                                                        <span style="background: #4caf50; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; margin-right: 8px;">${i+1}</span>
+                                                        <span style="color: #2e7d32; white-space: pre-wrap; line-height: 1.4;">${decodeEscapedChars(rec)}</span>
                                                     </div>
                                                 `).join('')}
                                             </div>
-                                        </div>
-                                    ` : ''}
-                                    
-                                    ${r.follow_up?.length ? `
-                                        <div>
-                                            <p style="color:#aaa;font-size:0.9rem;margin-bottom:8px;"><strong>📌 后续关注</strong></p>
-                                            <ul style="margin:0;padding-left:20px;">
-                                                ${r.follow_up.map(item => `<li style="margin:5px 0;color:#ccc;white-space:pre-wrap;line-height:1.4;">${decodeEscapedChars(item)}</li>`).join('')}
-                                            </ul>
                                         </div>
                                     ` : ''}
                                 </div>

@@ -1,12 +1,14 @@
 """
 数据模型定义
 """
+import os
 from dataclasses import dataclass, field, asdict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
 import json
 import uuid
+from cryptography.fernet import Fernet
 
 
 class SessionStatus(Enum):
@@ -33,6 +35,9 @@ class Session:
     # 用户基本信息
     age_group: Optional[str] = None
     gender: Optional[str] = None
+    
+    # 知情同意
+    consent_given: bool = False  # 用户是否已确认知情同意
     
     # 文件路径
     drawing_image: Optional[str] = None        # 绘画成品
@@ -66,8 +71,21 @@ class Session:
     def save(self, sessions_dir: str):
         """保存会话到文件"""
         filepath = f"{sessions_dir}/{self.id}.json"
+        data = self.to_dict()
+        
+        # 加密敏感字段
+        fernet = _get_fernet()
+        if fernet:
+            for field_name in _ENCRYPTED_FIELDS:
+                if field_name in data and data[field_name] is not None:
+                    raw = json.dumps(data[field_name], ensure_ascii=False)
+                    encrypted = fernet.encrypt(raw.encode()).decode()
+                    data[field_name] = f"enc:{encrypted}"
+        else:
+            print("[Session] 警告: DAPR_ENCRYPTION_KEY 未设置，敏感字段以明文存储")
+        
         with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
+            json.dump(data, f, ensure_ascii=False, indent=2)
     
     @classmethod
     def load(cls, session_id: str, sessions_dir: str) -> Optional['Session']:
@@ -77,12 +95,25 @@ class Session:
             with open(filepath, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
+            # 解密敏感字段
+            fernet = _get_fernet()
+            for field_name in _ENCRYPTED_FIELDS:
+                if field_name in data and isinstance(data[field_name], str) and data[field_name].startswith("enc:"):
+                    if fernet:
+                        encrypted = data[field_name][4:]
+                        decrypted = fernet.decrypt(encrypted.encode()).decode()
+                        data[field_name] = json.loads(decrypted)
+                    else:
+                        print(f"[Session] 警告: 检测到加密字段 {field_name} 但 DAPR_ENCRYPTION_KEY 未设置")
+                        data[field_name] = None
+            
             session = cls(
                 id=data['id'],
                 created_at=data['created_at'],
                 status=SessionStatus(data['status']),
                 age_group=data.get('age_group'),
                 gender=data.get('gender'),
+                consent_given=data.get('consent_given', False),
                 drawing_image=data.get('drawing_image'),
                 webcam_video=data.get('webcam_video'),
                 screen_video=data.get('screen_video'),
@@ -93,6 +124,8 @@ class Session:
                 generated_images=data.get('generated_images', []),
                 selected_image_id=data.get('selected_image_id'),
                 selection_behavior=data.get('selection_behavior'),
+                final_questions=data.get('final_questions', []),
+                final_answers=data.get('final_answers', []),
                 final_analysis=data.get('final_analysis'),
             )
             return session
@@ -135,3 +168,18 @@ class TherapistLog:
     flux2_input: Optional[Dict] = None      # Flux2输入
     flux2_output: Optional[Dict] = None     # Flux2输出
     data: Optional[Dict[str, Any]] = None   # 额外数据（如问题和回答）
+
+
+# 敏感字段加密
+def _get_fernet() -> Optional[Fernet]:
+    """获取 Fernet 实例，密钥来自环境变量 DAPR_ENCRYPTION_KEY"""
+    key = os.environ.get("DAPR_ENCRYPTION_KEY")
+    if not key:
+        return None
+    try:
+        return Fernet(key.encode())
+    except Exception:
+        return None
+
+# 需要加密的敏感字段列表
+_ENCRYPTED_FIELDS = {"user_answers", "final_answers", "webcam_video", "screen_video"}

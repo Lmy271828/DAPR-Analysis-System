@@ -364,7 +364,8 @@ async def create_session():
     return {
         "session_id": session.id,
         "status": session.status.value,
-        "guidance_text": GUIDANCE_TEXT
+        "guidance_text": GUIDANCE_TEXT,
+        "consent_given": session.consent_given
     }
 
 
@@ -949,6 +950,17 @@ async def submit_final_answers(request: FinalAnswerRequest, background_tasks: Ba
     background_tasks.add_task(generate_final_report_task, request.session_id)
     
     return {"status": "final_report_generating"}
+
+
+@app.post("/api/session/{session_id}/consent")
+async def submit_consent(session_id: str):
+    """提交用户知情同意"""
+    session = Session.load(session_id, SESSIONS_DIR)
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    session.consent_given = True
+    session.save(SESSIONS_DIR)
+    return {"status": "success"}
 
 
 # WebSocket 路由

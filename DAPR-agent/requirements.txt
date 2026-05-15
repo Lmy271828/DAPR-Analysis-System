@@ -12,3 +12,4 @@ transformers>=4.40.0
 accelerate
 
 git+https://github.com/huggingface/diffusers
+cryptography>=42.0.0

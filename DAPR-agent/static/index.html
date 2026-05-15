@@ -8,6 +8,27 @@
 </head>
 <body>
     <div id="app">
+        <!-- 知情同意弹窗 -->
+        <div id="consent-modal" class="page active" style="z-index: 1000; background: rgba(255,255,255,0.98);">
+            <div class="container" style="max-width: 600px;">
+                <h2>欢迎使用雨中人绘画探索</h2>
+                <div style="background: #f8f9fa; border-left: 4px solid #4a90e2; padding: 15px; margin: 20px 0; text-align: left; line-height: 1.6;">
+                    <p><strong>在开始之前，请您了解：</strong></p>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li>本工具是一个<strong>艺术创作与情绪探索</strong>的互动体验，不是心理测试，也不提供医疗诊断。</li>
+                        <li>系统不会评估您的精神健康状况，也不会给出任何临床结论或治疗建议。</li>
+                        <li>您的绘画、视频和对话数据仅用于本次会话的实时反馈，不会上传至第三方。</li>
+                        <li>如果您正经历严重的心理困扰，请寻求专业持证心理咨询师或精神科医生的帮助。</li>
+                    </ul>
+                </div>
+                <label style="display: flex; align-items: flex-start; gap: 10px; margin: 20px 0; text-align: left; cursor: pointer;">
+                    <input type="checkbox" id="consent-checkbox" style="margin-top: 3px;">
+                    <span>我已阅读并理解上述说明，确认本工具不提供医疗或心理诊断。</span>
+                </label>
+                <button id="consent-btn" class="btn-primary" disabled>进入探索</button>
+            </div>
+        </div>
+
         <!-- 引导页面 -->
         <div id="guidance-page" class="page active">
             <div class="container">
