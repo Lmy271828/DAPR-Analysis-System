@@ -7,7 +7,64 @@
 
 ## [Unreleased] — 重构进行中
 
-### 🚨 Phase 1: 伦理合规与数据隔离止损（进行中）
+### 🏛️ Agent 架构重构（已完成）
+
+#### 已完成
+
+- **轻量级 Agent 编排器 — Tool + Plan 模式**
+  - 新增 `agent/tools.py`：`BaseTool` 抽象基类 + `ToolWrapper` 零改动包装器 + `NotifyUserTool`
+  - 新增 `agent/plan.py`：`Plan` / `Step` / `StepStatus` 执行引擎 + 4 个预定义 Plan 模板（绘画后/回答后/选择后/最终回答后）
+  - 新增 `agent/orchestrator.py`：`AgentOrchestrator` 顺序执行 Plan，支持指数退避重试、关键 Tool 失败终止、非关键 Tool 跳过、状态持久化到数据库、WebSocket 实时推送
+  - `models.py`：`Session` 增加 `agent_state` 字段，存储 Plan 执行进度
+  - `main.py`：startup 注册 5 个 Tools，5 处 `background_tasks.add_task` 全部替换为 `orchestrator.submit_plan`
+  - **向后兼容**：所有现有 REST API 和 WebSocket 消息格式不变，前端无需修改
+
+---
+
+### ⚡ Phase 2: 并发性能与工程化改造（已完成）
+
+#### 已完成
+
+- **数据库替换：SQLite + SQLAlchemy**
+  - 新增 `db_models.py`：SQLAlchemy ORM 模型（`SessionModel` + `TherapistLogModel`），敏感字段加密存储
+  - 新增 `database.py`：数据库初始化 + 自动 JSON-to-DB 迁移
+  - `models.py`：`save()` / `load()` 改为 SQLite 优先，失败自动回退到本地 JSON
+  - `main.py`：启动时调用 `setup_database()` 初始化表结构
+  - 新增依赖：`sqlalchemy>=2.0.0`, `alembic>=1.13.0`
+
+- **前端工程化：therapist.html 组件化拆分**
+  - `therapist.html`：1709 行 → 471 行，删除全部内联脚本
+  - 新增 `therapist.js`：ES Module 入口，绑定事件与初始化
+  - 新增 `state.js`：全局状态管理
+  - 新增 `components/session-list.js`：会话列表组件
+  - 新增 `components/session-detail.js`：会话详情渲染
+  - 新增 `components/log-viewer.js`：日志查看与流监控
+  - 新增 `services/websocket.js`：WebSocket 连接与消息分发
+  - 新增 `services/api.js`：REST API 封装
+  - 新增 `utils/formatters.js`：时间/状态/日志格式化工具
+
+- **FLUX 模型后台预热（分析阶段并行加载）**
+  - `image_service.py`：新增 `warmup_with_image(image_path)` 方法，使用用户真实绘画替代 dummy 图像预热
+  - `main.py`：`analyze_drawing_task_stream()` 开始时后台并发启动预热任务，利用 LLM 分析期间的 GPU 空闲窗口加载 FLUX 权重
+  - 消除用户等待：用户回答完问题时模型已在显存，直接开始生成
+
+- **流式输出节流优化**
+  - `main.py`：流式推送阈值从每 5 字符提升到每 30 字符，减少前端卡顿和网络开销
+  - `send_to_subject()` 增加同类型消息 200ms 节流
+  - `_heartbeat_loop()`：补充 3 次无 pong 主动清理死连接
+
+- **HTTPS 支持**
+  - `main.py`：检测 `ENABLE_HTTPS=true`，自动加载 `SSL_CERT_FILE` / `SSL_KEY_FILE`
+  - 证书缺失时自动回退到 HTTP 并打印警告
+  - `README.md` 增加自签名证书生成命令
+
+#### 待完成
+
+- [ ] 图像生成云端 Provider 适配（Replicate API fallback，无本地 GPU 时自动降级）
+
+---
+
+### 🚨 Phase 1: 伦理合规与数据隔离止损（已完成）
 
 #### 已完成
 
@@ -29,11 +86,19 @@
   - 删除 `_request_json_repair` 与 `_request_final_report_repair` 方法（约 50 行死代码）
   - 简化 `_parse_analysis_response_with_contract` 与 `_parse_final_report_with_contract` 的重试逻辑
 
+- **数据存储加密**
+  - `models.py` 引入 `cryptography.fernet`，敏感字段（`user_answers`, `final_answers`, `webcam_video`, `screen_video`）自动加密
+  - `db_models.py` 复用相同加密逻辑，SQLite 中敏感字段以 `enc:` 前缀存储
+  - 加密密钥从环境变量 `DAPR_ENCRYPTION_KEY` 读取，未设置时保留明文回退（便于开发调试）
+
+- **知情同意弹窗**
+  - `index.html` / `app.js` 新增「知情同意」页面，用户必须勾选「我了解这只是一个艺术创作探索工具，不提供医疗或心理诊断」方可进入
+  - 同意状态通过 `POST /api/session/{id}/consent` 持久化到数据库
+  - 刷新页面后通过 `sessionStorage` 恢复同意状态，无需重复确认
+
 #### 待完成
 
-- [ ] `models.py` 本地 JSON 存储加密（`cryptography.fernet`）
-- [ ] `index.html` 知情同意弹窗（用户须勾选「不提供医疗诊断」方可进入）
-- [ ] `therapist.html` 最终分析区块去临床化渲染（当前仍渲染 `stress_level` / `coping_style` 等旧字段）
+- [ ] `app.js` 最终报告渲染去临床化（第 1134/1139/1144 行仍渲染 `stress_level` / `coping_style` / `emotional_state` 旧字段，需改为 `mood_observation` / `creative_insights` / `artistic_elements` / `suggested_explorations`）
 
 ---
 
@@ -95,37 +160,37 @@
 
 ## Roadmap — 重构计划概览
 
-> 详见 [`REFACTOR_PLAN.md`](./REFACTOR_PLAN.md)（精确到行号的四阶段重构计划）
+> 详见 [`REFACTOR_PLAN.md`](./REFACTOR_PLAN.md)（四阶段原始计划）  
+> 详见 [`PHASE2_PLAN.md`](./PHASE2_PLAN.md)（Phase 2 务实版计划）  
+> 详见 [`AGENT_PLAN.md`](./AGENT_PLAN.md)（Agent 架构务实版计划）
 
-### Phase 1: 伦理合规与数据隔离（Week 1-2）
+### Phase 1: 伦理合规与数据隔离（✅ 已完成）
 - [x] Prompt 层去临床化
 - [x] 修复单例会话语污染
 - [x] `response_format` 强制 JSON
-- [ ] 本地 JSON 加密存储
-- [ ] 知情同意弹窗
-- [ ] 前端报告界面去临床化渲染
+- [x] 本地 JSON / SQLite 加密存储
+- [x] 知情同意弹窗
+- [ ] 前端报告界面去临床化渲染（`app.js` 仍有旧字段，见上方待完成）
 
-### Phase 2: Agent 架构重构（Week 3-6）
-- [ ] 硬编码状态机 → ReAct + Function Calling
-- [ ] 新增 `agent_core.py`（ReActLoop + ToolRegistry + SessionAgent）
-- [ ] 新增 `tools.py`（AnalyzeDrawingTool / GenerateImageTool / FinalizeTool / EscalateTool）
-- [ ] 新增 `memory.py`（语义记忆 + ChromaDB 向量检索，替换截断式 ConversationManager）
-- [ ] `Session` 增加 `agent_state` 字段，状态机不再驱动业务逻辑
+### Phase 2: 工程化改造（✅ 核心已完成）
+- [x] SQLite 数据库替换本地 JSON
+- [x] therapist.html 组件化拆分（ES Module）
+- [x] 流式输出节流（5字符 → 30字符）
+- [x] HTTPS 自签名证书支持
+- [ ] 图像生成云端 Provider 适配（Replicate fallback，待完成）
 
-### Phase 3: 并发性能与工程化（Week 5-8）
-- [ ] `image_service.py` 全面异步化（urllib → aiohttp）
-- [ ] 图像生成串行 → `asyncio.gather` 并行（目标 <15s）
-- [ ] 本地 JSON → SQLAlchemy + SQLite/PostgreSQL
-- [ ] 前端工程化：拆分 `therapist.html` 为 Vite 组件化项目
-- [ ] HTTPS 自签名证书支持
-- [ ] WebSocket 流式输出节流（5字符 → 50字符/300ms）
+### Agent 架构重构（✅ 核心已完成）
+- [x] Tool Registry（`BaseTool` + `ToolWrapper`）
+- [x] Plan Engine（`Plan` / `Step` / 4 个预定义模板）
+- [x] Agent Orchestrator（顺序执行 + 重试 + 失败恢复 + 状态持久化）
+- [x] `main.py` 去除所有 `background_tasks.add_task` 硬编码
+- [ ] 前端 Stepper UI 执行状态可视化（待完成）
+- [ ] 历史 Plan 重放 API（待完成）
 
-### Phase 4: 情感图像生成核心能力（Week 7-10）
-- [ ] 新增 `emotion_embedding.py`（CLIP + sentence-transformers + PAD 情感向量）
-- [ ] ComfyUI 工作流支持情感条件注入
-- [ ] 新增 `stroke_processor.py`（笔触轨迹 → ControlNet 条件图）
-- [ ] 新增 `feedback_loop.py`（用户点赞/点踩 → 情感向量迭代优化）
-- [ ] 云端推理 provider 抽象（Replicate / RunPod / fal.ai，脱离本地 GPU 依赖）
+### 冻结 / 大赛后扩展（不做）
+- ReAct Loop（LLM 自主决策）：当前状态机已足够
+- 语义记忆 / ChromaDB：SQLite + ConversationManager 已够用
+- 情感向量 / ControlNet / 笔触轨迹：需要训练数据，时间不足
 
 ---
 
@@ -134,15 +199,19 @@
 | 维度 | 当前状态 | 目标 |
 |------|----------|------|
 | 合规安全 | ⚠️ 部分完成 | 零临床术语、知情同意、数据加密 |
-| 架构 Agentic | ❌ 硬编码状态机 | ReAct + Function Calling |
+| 架构 Agentic | ✅ 已完成 | Tool + Plan + Orchestrator，失败可重试 |
 | 会话隔离 | ✅ 已修复 | 多并发零污染 |
-| 并发性能 | ❌ 串行生成 | 3图并行 <15s |
-| 前端工程 | ❌ 1700行内联HTML | Vite + 组件化 |
-| 核心壁垒 | ❌ 仅调用 ComfyUI | 情感条件扩散 + 笔触 ControlNet |
+| 并发性能 | ✅ 已完成 | 异步批处理 + 并行轮询 + FP4 量化 |
+| 前端工程 | ✅ 已完成 | ES Module 组件化，therapist.html < 500 行 |
+| 数据持久化 | ✅ 已完成 | SQLite + 加密 + JSON 回退 |
+| 核心壁垒 | ⚠️ 部分完成 | 本地 ComfyUI 可用，缺云端 fallback |
 
 ---
 
 ## 备注
 
 - **版本 0.x 期间**：API 和 schema 可能在不升级主版本号的情况下发生破坏性变更
-- **大赛截止建议**：若资源极度有限，优先完成 Phase 1 全部 + Phase 3 数据库替换 + Phase 4 云端 provider，即可拿出「能用的产品」
+- **下一步优先级**：
+  1. `app.js` 最终报告渲染去临床化（1 小时）
+  2. 云端 Provider 适配（2-3 天，大赛保底方案）
+  3. 前端 Stepper UI + 历史 Plan 重放（2-3 天，可选）

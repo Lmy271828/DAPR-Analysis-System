@@ -204,11 +204,15 @@ class ComfyUIService:
         self,
         input_name: str,
         variations: List[Dict],
+        client_id: str = None,
     ) -> List[Dict]:
         """
         批量提交任务到 ComfyUI 队列
         
         一次性提交所有任务，ComfyUI 会复用已加载的模型依次执行。
+        
+        Args:
+            client_id: 可选，用于 WebSocket 执行监控
         """
         submitted = []
         
@@ -224,14 +228,16 @@ class ComfyUIService:
                 clip_name="qwen_3_4b_fp4_flux2.safetensors",
             )
             
-            result = await self.queue_prompt_async(wf)
+            result = await self.queue_prompt_async(wf, client_id=client_id)
             prompt_id = result.get("prompt_id")
             
+            filename_prefix = f"DAPR-{variation.get('id', i)}"
             submitted.append({
                 "prompt_id": prompt_id,
                 "variation": variation,
                 "index": i,
                 "prompt": full_prompt,
+                "filename_prefix": filename_prefix,
             })
             print(f"[ImageGen] 已提交任务 {i} (prompt_id={prompt_id[:8]}...)")
         
@@ -240,19 +246,57 @@ class ComfyUIService:
     async def _poll_single(
         self,
         prompt_id: str,
+        filename_prefix: str = None,
         poll_interval: float = 0.5
     ) -> Optional[Dict]:
         """
         轮询单个任务直到完成或超时。
         返回 history 数据，超时时返回 None。
+        
+        修复：ComfyUI 的 history 在 execution_start 时就已创建，
+        必须检查 outputs 非空或 completed 有明确状态才视为完成。
+        
+        新增：增加文件系统兜底检查，history API 不可靠时通过检查
+        ComfyUI 输出目录中的文件来确认任务完成。
         """
         start_time = time.time()
+        comfy_output = Path(__file__).parent.parent.parent.parent / "ComfyUI" / "output"
         
         while time.time() - start_time < self.timeout:
             history = await self.get_history_async(prompt_id)
             if prompt_id in history:
-                print(f"[ImageGen] 任务完成 {prompt_id[:8]}...")
-                return history[prompt_id]
+                entry = history[prompt_id]
+                outputs = entry.get("outputs", {})
+                completed = entry.get("completed")
+                
+                # 有输出或明确标记为完成
+                if outputs or completed is True:
+                    print(f"[ImageGen] 任务完成 {prompt_id[:8]}...")
+                    return entry
+                
+                # 明确标记为失败
+                if completed is False:
+                    print(f"[ImageGen] 任务失败 {prompt_id[:8]}...")
+                    return entry
+                
+                # history 存在但任务还在执行中（completed=None），继续等待
+            
+            # ── 文件系统兜底：检查输出目录中是否已生成对应文件 ──
+            if filename_prefix:
+                matched = sorted(
+                    comfy_output.glob(f"{filename_prefix}_*.png"),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True
+                )
+                if matched:
+                    print(f"[ImageGen] 任务完成(文件兜底) {prompt_id[:8]}...")
+                    return {
+                        "outputs": {
+                            "9": {"images": [{"filename": matched[0].name, "subfolder": ""}]}
+                        },
+                        "completed": True,
+                    }
+            
             await asyncio.sleep(poll_interval)
         
         print(f"[ImageGen] 任务超时 {prompt_id[:8]}...")
@@ -267,6 +311,8 @@ class ComfyUIService:
         并行轮询批量任务，谁先完成先处理谁。
         
         使用 asyncio.as_completed 实现"流式"返回已完成任务。
+        
+        修复：ComfyUI history API 不可靠，增加文件系统兜底检查。
         """
         # 包装轮询协程，使其返回 (item, history) 元组
         async def _poll_with_meta(item: Dict) -> tuple[Dict, Optional[Dict]]:
@@ -303,8 +349,95 @@ class ComfyUIService:
                 # 尝试从异常中恢复 item 信息
                 failed.append({"index": -1, "prompt_id": "unknown"})
         
+        # ── 兜底：文件系统检查 ──
+        # ComfyUI 的 history API 可能不可靠（outputs 延迟更新或条目被清理）。
+        # 如果文件已存在于 ComfyUI 输出目录中，视为成功。
+        pending = [item for item in submitted 
+                   if item not in [c["item"] for c in completed] 
+                   and item not in failed]
+        if pending:
+            comfy_output = Path(__file__).parent.parent.parent.parent / "ComfyUI" / "output"
+            for item in pending:
+                prefix = item.get("filename_prefix", f"DAPR-{item['variation'].get('id', item['index'])}")
+                matched = sorted(
+                    comfy_output.glob(f"{prefix}_*.png"),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True
+                )
+                if matched:
+                    newest = matched[0]
+                    print(f"[ImageGen] 兜底命中: {newest.name}")
+                    completed.append({
+                        "item": item,
+                        "image_info": {"filename": newest.name, "subfolder": ""},
+                        "history": {},
+                    })
+                else:
+                    failed.append(item)
+        
         return completed, failed
     
+    async def ws_monitor_execution(
+        self,
+        client_id: str,
+        timeout: float = 600,
+    ) -> List[Dict]:
+        """
+        通过 WebSocket 实时监控 ComfyUI 执行过程，收集错误日志。
+        
+        需要在 submit_batch 中传入相同的 client_id 才能收到对应任务的执行事件。
+        
+        Returns:
+            捕获到的 execution_error 列表
+        """
+        uri = f"ws://{self.server_address}/ws?client_id={client_id}"
+        errors = []
+        start_time = time.time()
+        
+        try:
+            async with aiohttp.ClientSession() as ws_session:
+                async with ws_session.ws_connect(uri) as ws:
+                    print(f"[ImageGen] WebSocket 监控已启动: {client_id[:8]}...")
+                    async for msg in ws:
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            data = json.loads(msg.data)
+                            msg_type = data.get("type")
+                            
+                            if msg_type == "execution_start":
+                                pid = data["data"].get("prompt_id", "N/A")
+                                print(f"[ImageGen] WS: 执行开始 {pid[:8]}...")
+                            elif msg_type == "executing":
+                                node = data["data"].get("node")
+                                if node:
+                                    print(f"[ImageGen] WS: 正在执行节点 {node}")
+                            elif msg_type == "execution_error":
+                                err = data.get("data", {})
+                                errors.append(err)
+                                print(f"[ImageGen] ⚠️ WS: 执行错误!")
+                                print(f"    prompt_id: {err.get('prompt_id', 'N/A')[:16]}")
+                                print(f"    node_id:   {err.get('node_id', 'N/A')}")
+                                print(f"    type:      {err.get('exception_type', 'N/A')}")
+                                print(f"    msg:       {err.get('exception_message', 'N/A')[:300]}")
+                                tb = err.get('traceback', [])
+                                if tb:
+                                    print(f"    traceback: {tb[-1][:200]}")
+                            elif msg_type == "execution_complete":
+                                pid = data["data"].get("prompt_id", "N/A")
+                                print(f"[ImageGen] WS: 执行完成 {pid[:8]}...")
+                                
+                        elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                            break
+                            
+                        if time.time() - start_time > timeout:
+                            print("[ImageGen] WebSocket 监控超时")
+                            break
+                            
+        except Exception as e:
+            print(f"[ImageGen] WebSocket 监控异常: {e}")
+        
+        print(f"[ImageGen] WebSocket 监控结束，捕获 {len(errors)} 个错误")
+        return errors
+
     async def download_results(
         self,
         completed: List[Dict],
@@ -356,12 +489,31 @@ class ComfyUIService:
     # 模型预热（预加载权重到显存）
     # ─────────────────────────────────────────────
     
+    @staticmethod
+    def _minimal_png(width: int = 64, height: int = 64) -> bytes:
+        """生成最小化的灰色 PNG（无 Pillow 依赖）"""
+        import zlib, struct
+        def chunk(chunk_type, data):
+            c = chunk_type + data
+            crc = zlib.crc32(c) & 0xffffffff
+            return struct.pack(">I", len(data)) + c + struct.pack(">I", crc)
+        raw = bytes([128] * (width * height * 3))
+        compressed = zlib.compress(raw)
+        return (
+            b'\x89PNG\r\n\x1a\n'
+            + chunk(b'IHDR', struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+            + chunk(b'IDAT', compressed)
+            + chunk(b'IEND', b'')
+        )
+
     async def warmup(self, force: bool = False) -> bool:
         """
         发送一个 dummy prompt 让 ComfyUI 加载所有模型到显存。
         
         预热后，后续批量任务的模型加载时间为 0。
         使用 1 step 最小化开销。
+        
+        修复：上传 dummy 图像避免 LoadImage 节点 400 错误。
         """
         if ComfyUIService._models_warmed_up and not force:
             print("[ImageGen] 模型已预热，跳过")
@@ -370,28 +522,31 @@ class ComfyUIService:
         print("[ImageGen] 正在预热模型（预加载到显存）...")
         
         try:
+            # ── 创建并上传 dummy 图像，避免 LoadImage 引用不存在的文件 ──
+            dummy_name = "warmup_dummy.png"
+            dummy_path = Path(__file__).parent / dummy_name
+            if not dummy_path.exists():
+                dummy_path.write_bytes(self._minimal_png())
+            try:
+                await self.upload_image_async(str(dummy_path), dummy_name)
+                print(f"[ImageGen] 已上传预热 dummy 图像: {dummy_name}")
+            except Exception:
+                pass  # 图像可能已存在
+            
             # 构建最小化工作流用于预热
-            wf = json.loads(json.dumps(self.workflow_template))
-            
-            # 最小化设置：1 step，空提示词
-            if "75:62" in wf and "inputs" in wf["75:62"]:
-                wf["75:62"]["inputs"]["steps"] = 1
-            
-            if "75:74" in wf and "inputs" in wf["75:74"]:
-                wf["75:74"]["inputs"]["text"] = "warmup"
-            
-            # 使用 FP4 encoder
-            if "75:71" in wf and "inputs" in wf["75:71"]:
-                wf["75:71"]["inputs"]["clip_name"] = "qwen_3_4b_fp4_flux2.safetensors"
-            
-            if "9" in wf and "inputs" in wf["9"]:
-                wf["9"]["inputs"]["filename_prefix"] = "DAPR-warmup"
+            wf = self.modify_workflow(
+                input_image=dummy_name,
+                prompt="warmup",
+                steps=1,
+                filename_prefix="DAPR-warmup",
+                clip_name="qwen_3_4b_fp4_flux2.safetensors",
+            )
             
             result = await self.queue_prompt_async(wf)
             prompt_id = result.get("prompt_id")
             
-            # 等待预热完成
-            history = await self._poll_single(prompt_id, poll_interval=0.3)
+            # 等待预热完成（带文件系统兜底）
+            history = await self._poll_single(prompt_id, filename_prefix="DAPR-warmup", poll_interval=0.3)
             
             if history:
                 ComfyUIService._models_warmed_up = True
@@ -403,6 +558,63 @@ class ComfyUIService:
                 
         except Exception as e:
             print(f"[ImageGen] 模型预热失败: {e}")
+            return False
+    
+    async def warmup_with_image(self, image_path: str, force: bool = False) -> bool:
+        """
+        使用用户真实绘画进行预热。
+        
+        在 LLM 分析阶段后台调用：LLM 分析不需要本地 GPU，此时 ComfyUI 的 GPU
+        完全空闲，可以并行加载 FLUX 模型权重。等用户回答完问题后，模型已
+        在显存中，可直接开始生成，消除用户等待。
+        
+        Args:
+            image_path: 用户绘画的真实路径（已保存到磁盘）
+            force: 强制重新预热
+        """
+        if ComfyUIService._models_warmed_up and not force:
+            return True
+        
+        print(f"[ImageGen] 后台预热开始（使用真实绘画）: {os.path.basename(image_path)}")
+        t0 = time.time()
+        
+        try:
+            # 上传用户真实绘画（ComfyUI 需要）
+            input_name = os.path.basename(image_path)
+            try:
+                await self.upload_image_async(image_path, input_name)
+            except Exception:
+                pass  # 图像可能已存在
+            
+            # 构建最小化工作流：1-step dummy prompt，只加载模型不追求画质
+            wf = self.modify_workflow(
+                input_image=input_name,
+                prompt="warmup",
+                steps=1,
+                filename_prefix="DAPR-warmup",
+                clip_name="qwen_3_4b_fp4_flux2.safetensors",
+            )
+            
+            result = await self.queue_prompt_async(wf)
+            prompt_id = result.get("prompt_id")
+            
+            # 等待预热完成（带文件系统兜底）
+            history = await self._poll_single(
+                prompt_id,
+                filename_prefix="DAPR-warmup",
+                poll_interval=0.3
+            )
+            
+            if history:
+                ComfyUIService._models_warmed_up = True
+                print(f"[ImageGen] 后台预热完成，耗时 {time.time()-t0:.1f}s，权重已驻留显存")
+                return True
+            else:
+                print(f"[ImageGen] 后台预热超时（{time.time()-t0:.1f}s）")
+                return False
+                
+        except Exception as e:
+            print(f"[ImageGen] 后台预热失败: {e}")
             return False
     
     # ─────────────────────────────────────────────

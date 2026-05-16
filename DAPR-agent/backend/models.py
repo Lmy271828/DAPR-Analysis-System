@@ -80,7 +80,7 @@ class Session:
                 data = self.to_dict()
                 row = SessionModel(
                     id=self.id,
-                    created_at=self.created_at if isinstance(self.created_at, str) else datetime.now().isoformat(),
+                    created_at=datetime.fromisoformat(self.created_at) if isinstance(self.created_at, str) else (self.created_at if isinstance(self.created_at, datetime) else datetime.now()),
                     status=self.status.value,
                     age_group=self.age_group,
                     gender=self.gender,

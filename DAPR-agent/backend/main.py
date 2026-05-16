@@ -537,6 +537,14 @@ async def analyze_drawing_task_stream(session_id: str):
             print(f"[Analysis Stream] 会话不存在: {session_id}")
             return
         
+        # ── 后台预热：LLM分析期间GPU空闲，并行加载FLUX模型 ──
+        if session.drawing_image:
+            image_service = get_image_service()
+            asyncio.create_task(
+                image_service.warmup_with_image(session.drawing_image),
+                name=f"warmup-{session_id[:8]}"
+            )
+        
         print(f"[Analysis Stream] 开始流式分析: {session_id}")
         llm = create_llm_service(session_id)
         
