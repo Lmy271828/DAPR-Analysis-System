@@ -96,9 +96,16 @@
   - 同意状态通过 `POST /api/session/{id}/consent` 持久化到数据库
   - 刷新页面后通过 `sessionStorage` 恢复同意状态，无需重复确认
 
-#### 待完成
+#### 已完成
 
-- [ ] `app.js` 最终报告渲染去临床化（第 1134/1139/1144 行仍渲染 `stress_level` / `coping_style` / `emotional_state` 旧字段，需改为 `mood_observation` / `creative_insights` / `artistic_elements` / `suggested_explorations`）
+- **`app.js` 最终报告渲染去临床化**
+  - 移除 `stress_level` / `coping_style` / `emotional_state` 临床三卡片
+  - 移除 `deep_analysis` 深度心理分析区块（self_concept / interpersonal / stress_response / underlying_needs）
+  - 移除 `recommendations` 专业建议、`follow_up` 后续关注要点等临床表述
+  - 新增 `creative_insights` →「创作发现」、`suggested_explorations` →「建议探索方向」
+  - 保留 `summary` → 创作回顾总结、`selection_interpretation` →「选择背后的感受」
+  - 更新底部免责声明：删除「心理咨询师」提法，明确「不构成医疗或心理诊断」
+  - 向后兼容：旧字段（`key_insights` / `recommendations` / `follow_up`）作为兜底显示
 
 ---
 
@@ -170,7 +177,7 @@
 - [x] `response_format` 强制 JSON
 - [x] 本地 JSON / SQLite 加密存储
 - [x] 知情同意弹窗
-- [ ] 前端报告界面去临床化渲染（`app.js` 仍有旧字段，见上方待完成）
+- [x] 前端报告界面去临床化渲染
 
 ### Phase 2: 工程化改造（✅ 核心已完成）
 - [x] SQLite 数据库替换本地 JSON
@@ -198,7 +205,7 @@
 
 | 维度 | 当前状态 | 目标 |
 |------|----------|------|
-| 合规安全 | ⚠️ 部分完成 | 零临床术语、知情同意、数据加密 |
+| 合规安全 | ✅ 已完成 | 零临床术语、知情同意、数据加密 |
 | 架构 Agentic | ✅ 已完成 | Tool + Plan + Orchestrator，失败可重试 |
 | 会话隔离 | ✅ 已修复 | 多并发零污染 |
 | 并发性能 | ✅ 已完成 | 异步批处理 + 并行轮询 + FP4 量化 |

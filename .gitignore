@@ -4,6 +4,7 @@
 # DAPR-agent 输出和会话
 /DAPR-agent/outputs/
 /DAPR-agent/sessions/
+/DAPR-agent/data/
 
 # DAPR-doodle 目录
 /DAPR-doodle/
@@ -29,3 +30,19 @@ __pycache__/
 # 操作系统
 .DS_Store
 Thumbs.db
+*.Zone.Identifier
+
+# 备份与临时文件
+*.bak
+*.swp
+*.swo
+
+# 测试输出与资源文件
+/tests/
+*/tests/outputs/
+*/warmup_dummy.png
+test*.jpeg
+test*.jpg
+test*.png
+run_comfyui_e2e.sh
+DAPR-agent/test_image_service.py

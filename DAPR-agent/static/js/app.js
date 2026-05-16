@@ -1117,39 +1117,23 @@ function showFinalReport(data) {
     const container = elements['report-content'];
     const analysis = data.final_analysis || data;
     
-    // 深度分析部分
-    const deepAnalysis = analysis.deep_analysis || {};
+    // 向后兼容：新字段优先，旧字段兜底
+    const creativeInsights = analysis.creative_insights || analysis.key_insights || [];
+    const suggestedExplorations = analysis.suggested_explorations || analysis.recommendations || analysis.follow_up || [];
     
     container.innerHTML = `
         <div class="report-header">
-            <h3>📊 综合分析</h3>
+            <h3>🎨 创作回顾</h3>
             <div class="report-summary-box">
-                <p>${analysis.summary || '暂无分析'}</p>
+                <p>${analysis.summary || '本次绘画探索已完成，感谢你的参与。'}</p>
             </div>
         </div>
         
-        <div class="report-grid">
-            <div class="report-card">
-                <h4>😰 压力水平</h4>
-                <p>${analysis.stress_level || '未评估'}</p>
-            </div>
-            
-            <div class="report-card">
-                <h4>🛡️ 应对方式</h4>
-                <p>${analysis.coping_style || '未评估'}</p>
-            </div>
-            
-            <div class="report-card">
-                <h4>😊 情绪状态</h4>
-                <p>${analysis.emotional_state || '未评估'}</p>
-            </div>
-        </div>
-        
-        ${analysis.key_insights && analysis.key_insights.length > 0 ? `
+        ${creativeInsights.length > 0 ? `
         <div class="report-section">
-            <h3>💡 关键发现</h3>
+            <h3>💡 创作发现</h3>
             <ul class="insights-list">
-                ${analysis.key_insights.map(insight => `
+                ${creativeInsights.map(insight => `
                     <li>
                         <span class="insight-bullet">●</span>
                         <span class="insight-text">${insight}</span>
@@ -1161,68 +1145,27 @@ function showFinalReport(data) {
         
         ${analysis.selection_interpretation ? `
         <div class="report-section">
-            <h3>🎯 选择行为解读</h3>
+            <h3>🎯 选择背后的感受</h3>
             <p class="selection-analysis">${analysis.selection_interpretation}</p>
         </div>
         ` : ''}
         
-        ${(deepAnalysis.self_concept || deepAnalysis.interpersonal || deepAnalysis.stress_response || deepAnalysis.underlying_needs) ? `
+        ${suggestedExplorations.length > 0 ? `
         <div class="report-section">
-            <h3>🔍 深度心理分析</h3>
-            <div class="deep-analysis-grid">
-                ${deepAnalysis.self_concept ? `
-                    <div class="deep-analysis-item">
-                        <h5>自我概念</h5>
-                        <p>${deepAnalysis.self_concept}</p>
-                    </div>
-                ` : ''}
-                ${deepAnalysis.interpersonal ? `
-                    <div class="deep-analysis-item">
-                        <h5>人际关系模式</h5>
-                        <p>${deepAnalysis.interpersonal}</p>
-                    </div>
-                ` : ''}
-                ${deepAnalysis.stress_response ? `
-                    <div class="deep-analysis-item">
-                        <h5>压力反应模式</h5>
-                        <p>${deepAnalysis.stress_response}</p>
-                    </div>
-                ` : ''}
-                ${deepAnalysis.underlying_needs ? `
-                    <div class="deep-analysis-item">
-                        <h5>潜在心理需求</h5>
-                        <p>${deepAnalysis.underlying_needs}</p>
-                    </div>
-                ` : ''}
-            </div>
-        </div>
-        ` : ''}
-        
-        ${analysis.recommendations && analysis.recommendations.length > 0 ? `
-        <div class="report-section">
-            <h3>💪 专业建议</h3>
+            <h3>🌟 建议探索方向</h3>
             <div class="recommendations-list">
-                ${analysis.recommendations.map((rec, i) => `
+                ${suggestedExplorations.map((item, i) => `
                     <div class="recommendation-item">
                         <span class="rec-number">${i + 1}</span>
-                        <p>${rec}</p>
+                        <p>${item}</p>
                     </div>
                 `).join('')}
             </div>
         </div>
         ` : ''}
         
-        ${analysis.follow_up && analysis.follow_up.length > 0 ? `
-        <div class="report-section">
-            <h3>📌 后续关注要点</h3>
-            <ul class="follow-up-list">
-                ${analysis.follow_up.map(item => `<li>${item}</li>`).join('')}
-            </ul>
-        </div>
-        ` : ''}
-        
         <div class="report-footer">
-            <p class="disclaimer">⚠️ 本报告基于AI分析生成，仅供参考。如有需要，请咨询专业心理咨询师。</p>
+            <p class="disclaimer">⚠️ 本创作回顾基于 AI 观察生成，仅供艺术探索参考，不构成任何医疗或心理诊断。</p>
         </div>
     `;
 }
