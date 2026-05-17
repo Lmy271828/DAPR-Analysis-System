@@ -10,7 +10,7 @@ InterviewAgent — 自主访谈 Agent
 """
 import asyncio
 import json
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from dataclasses import dataclass, field
 
@@ -39,7 +39,28 @@ class InterviewAgent:
     
     MAX_TURNS = 8
     MIN_TURNS = 2
-    
+
+    # 图像变体 JSON Schema（用于 Moonshot json_schema 严格模式）
+    VARIATIONS_JSON_SCHEMA = {
+        "name": "image_variations",
+        "type": "array",
+        "minItems": 3,
+        "maxItems": 3,
+        "items": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "edit_prompt": {"type": "string"},
+                "color_prompt": {"type": "string"},
+                "hypothesis_id": {"type": "string"}
+            },
+            "required": ["id", "name", "description", "edit_prompt", "color_prompt"],
+            "additionalProperties": False
+        }
+    }
+
     def __init__(self, session_id: str):
         self.session_id = session_id
         self.turn_count = 0
@@ -59,12 +80,19 @@ class InterviewAgent:
         # LLM 服务延迟初始化（避免循环导入）
         self._llm = None
     
+    @staticmethod
+    def _ensure_backend_path():
+        """确保 backend/ 目录在 sys.path 中（供延迟导入使用）"""
+        import sys
+        from pathlib import Path
+        backend_path = str(Path(__file__).parent.parent)
+        if backend_path not in sys.path:
+            sys.path.insert(0, backend_path)
+
     def _get_llm(self):
         """延迟初始化云端 LLM 服务（Kimi，仅处理文字）"""
         if self._llm is None:
-            import sys
-            from pathlib import Path
-            sys.path.insert(0, str(Path(__file__).parent.parent))
+            self._ensure_backend_path()
             from services.llm.core import create_cloud_llm_service
             self._llm = create_cloud_llm_service(self.session_id)
         return self._llm
@@ -95,9 +123,7 @@ class InterviewAgent:
     def _get_knowledge_context(self) -> str:
         """获取访谈阶段应注入的知识库上下文"""
         try:
-            import sys
-            from pathlib import Path
-            sys.path.insert(0, str(Path(__file__).parent.parent))
+            self._ensure_backend_path()
             from services.llm.knowledge import get_interview_knowledge
             return get_interview_knowledge(user_profile=self._user_profile)
         except Exception as e:
@@ -374,9 +400,7 @@ class InterviewAgent:
             variations = await self._generate_image_variations()
             
             # 提交生图 Plan
-            import sys
-            from pathlib import Path
-            sys.path.insert(0, str(Path(__file__).parent.parent))
+            self._ensure_backend_path()
             from agent.plan import Plan, Step
             from agent.orchestrator import AgentOrchestrator
             
@@ -397,16 +421,33 @@ class InterviewAgent:
             import traceback
             traceback.print_exc()
     
-    async def _generate_image_variations(self) -> List[Dict]:
-        """基于对话历史生成 3 个图像编辑指令"""
-        try:
-            llm = self._get_llm()
-            analysis_text = await self._get_analysis_text()
-            conversation_text = self._format_conversation()
-            
-            knowledge_context = self._get_knowledge_context()
-            
-            prompt = f"""你是一位艺术表达引导伙伴。基于以下绘画分析和用户访谈对话，生成 3 个不同方向的图像编辑变体。
+    def _validate_variations(self, variations: List[Dict]) -> Tuple[bool, str]:
+        """校验图像变体列表的字段完整性。
+
+        Returns:
+            (is_valid, error_message)
+        """
+        if not isinstance(variations, list):
+            return False, f"变体不是数组，而是 {type(variations).__name__}"
+        if len(variations) < 3:
+            return False, f"变体数量不足: {len(variations)} < 3"
+
+        required_fields = {"id", "name", "description", "edit_prompt", "color_prompt"}
+        for i, var in enumerate(variations):
+            if not isinstance(var, dict):
+                return False, f"变体[{i}] 不是对象"
+            missing = required_fields - set(var.keys())
+            if missing:
+                return False, f"变体[{i}] 缺少字段: {sorted(missing)}"
+            for field in required_fields:
+                val = var.get(field)
+                if not isinstance(val, str) or not val.strip():
+                    return False, f"变体[{i}].{field} 为空或非字符串"
+        return True, ""
+
+    def _build_variations_prompt(self, analysis_text: str, conversation_text: str, knowledge_context: str) -> str:
+        """构建图像变体生成 prompt"""
+        return f"""你是一位艺术表达引导伙伴。基于以下绘画分析和用户访谈对话，生成 3 个不同方向的图像编辑变体。
 
 【绘画分析摘要】
 {analysis_text[:400]}
@@ -422,34 +463,90 @@ class InterviewAgent:
 2. 冷色调变体：朝冷静、疏离、内省的方向转化
 3. 高饱和变体：朝强烈情绪表达、释放的方向转化
 
-每个变体包含：
-- name: 变体名称
-- description: 变体描述（心理意义）
-- edit_prompt: 英文图像编辑指令（详细描述如何修改画面）
+每个变体必须包含以下字段：
+- id: 字符串标识（如 warmth / cool / vibrant）
+- name: 中文变体名称
+- description: 中文描述（心理意义，温和有画面感）
+- edit_prompt: 英文图像编辑指令（轻量、保留原构图）
 - color_prompt: 英文色彩描述
-- hypothesis_id: 关联的猜想 ID
+- hypothesis_id: 关联猜想 ID（如 hypo-warmth）
 
-生成时请遵守【Ethical Guardrails】中的原则：
-- 不做诊断，不量化评分
-- 尊重用户的自我理解优先于你的推断
-- 变体描述应使用温和、有画面感的语言，避免病理化术语
+禁忌：不做诊断，不量化评分，避免病理化术语。
 
-请只输出 JSON 数组，不要任何解释：
-[
-  {{"id": "warmth", "name": "...", "description": "...", "edit_prompt": "...", "color_prompt": "...", "hypothesis_id": "hypo-warmth"}},
-  ...
-]"""
-            
-            response = await asyncio.to_thread(llm.generate, prompt, force_json=True)
-            variations = json.loads(response)
-            if not isinstance(variations, list):
-                variations = variations.get("variations", [])
-            print(f"[InterviewAgent] 生成 {len(variations)} 个图像变体指令")
-            return variations[:3]
-            
-        except Exception as e:
-            print(f"[InterviewAgent] 生成图像变体失败，使用默认: {e}")
-            return self._default_variations()
+请只输出合法 JSON 数组，不要 markdown 代码块，不要解释文字。"""
+
+    async def _generate_image_variations(self) -> List[Dict]:
+        """基于对话历史生成 3 个图像编辑指令。
+
+        采用 3 次尝试 + 字段校验 + repair 机制：
+        1. 首次调用带 json_schema 严格模式（Moonshot）
+        2. 若解析或校验失败，用 repair prompt 修正
+        3. 最终兜底 _default_variations()
+        """
+        llm = self._get_llm()
+        analysis_text = await self._get_analysis_text()
+        conversation_text = self._format_conversation()
+        knowledge_context = self._get_knowledge_context()
+
+        base_prompt = self._build_variations_prompt(analysis_text, conversation_text, knowledge_context)
+        current_text = ""
+        last_error = "unknown"
+
+        for attempt in range(3):
+            prompt = base_prompt if attempt == 0 else f"""你是一位 JSON 修复器。请将以下文本修复为合法的图像变体 JSON 数组。
+
+错误信息: {last_error}
+原始文本:
+{current_text}
+
+要求:
+- 只输出 JSON 数组，不要解释
+- 每个变体必须包含: id, name, description, edit_prompt, color_prompt, hypothesis_id
+- edit_prompt 和 color_prompt 使用英文
+- name 和 description 使用中文
+
+修复后的 JSON 数组:"""
+
+            try:
+                response = await asyncio.to_thread(
+                    llm.generate,
+                    prompt,
+                    force_json=True,
+                    json_schema=self.VARIATIONS_JSON_SCHEMA if attempt == 0 else None,
+                )
+                current_text = response or ""
+
+                # 清理可能的 markdown 包裹
+                cleaned = current_text.strip()
+                if cleaned.startswith("```"):
+                    cleaned = cleaned.split("```json")[-1].split("```")[0].strip()
+
+                data = json.loads(cleaned)
+                if isinstance(data, dict):
+                    # 兼容嵌套结构
+                    variations = data.get("variations", data.get("data", []))
+                elif isinstance(data, list):
+                    variations = data
+                else:
+                    variations = []
+
+                valid, err = self._validate_variations(variations)
+                if valid:
+                    print(f"[InterviewAgent] 图像变体生成成功 (attempt={attempt}): {len(variations)} 个")
+                    return variations[:3]
+
+                last_error = err
+                print(f"[InterviewAgent] 变体检验失败 (attempt={attempt}): {err}")
+
+            except json.JSONDecodeError as e:
+                last_error = f"JSON 解析失败: {e}"
+                print(f"[InterviewAgent] JSON 解析失败 (attempt={attempt}): {e}")
+            except Exception as e:
+                last_error = str(e)
+                print(f"[InterviewAgent] 生成异常 (attempt={attempt}): {e}")
+
+        print("[InterviewAgent] 3 次尝试均失败，使用默认兜底变体")
+        return self._default_variations()
     
     def _default_variations(self) -> List[Dict]:
         """默认图像变体（兜底）"""
@@ -487,9 +584,7 @@ class InterviewAgent:
     async def _persist_state(self):
         """将 Agent 状态持久化到数据库"""
         try:
-            import sys
-            from pathlib import Path
-            sys.path.insert(0, str(Path(__file__).parent.parent))
+            self._ensure_backend_path()
             from models import Session
             
             session = Session.load(self.session_id)
@@ -555,9 +650,7 @@ class InterviewAgent:
 
         # fallback: 从 session DB 读取
         try:
-            import sys
-            from pathlib import Path
-            sys.path.insert(0, str(Path(__file__).parent.parent))
+            self._ensure_backend_path()
             from models import Session
 
             session = Session.load(self.session_id)

@@ -91,19 +91,48 @@ class KimiService:
             print(f"[LLM] 初始化失败: {e}")
             raise
 
+    def _build_response_format(self, force_json: bool, json_schema: dict = None):
+        """构建 Moonshot 兼容的 response_format 参数。
+
+        Moonshot 要求 json_schema 必须包含 name 字段。
+        如果传入的 schema 没有 name，自动填充默认值。
+        """
+        if json_schema:
+            schema_name = json_schema.get("name", "structured_output")
+            return {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema_name,
+                    "strict": True,
+                    "schema": json_schema,
+                }
+            }
+        if force_json:
+            return {"type": "json_object"}
+        return None
+
     def generate(
         self,
         prompt: str,
         system_prompt: str = "",
-        force_json: bool = False
+        force_json: bool = False,
+        json_schema: dict = None,
     ) -> str:
-        """纯文字生成回复（云端 Kimi 不接触图像/视频）"""
+        """纯文字生成回复（云端 Kimi 不接触图像/视频）
+
+        Args:
+            json_schema: 传入则启用 Moonshot JSON Schema 严格模式。
+                         若 API 不支持，自动降级为 json_object 并重试一次。
+        """
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        print(f"[LLM] 发送文字请求 -> {self.model}")
+        print(f"[LLM] 发送文字请求 -> {self.model} (schema={json_schema is not None})")
+
+        response_format = self._build_response_format(force_json, json_schema)
+        used_schema = json_schema is not None
 
         try:
             response = self.client.chat.completions.create(
@@ -111,13 +140,32 @@ class KimiService:
                 messages=messages,
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
-                **({"response_format": {"type": "json_object"}} if force_json else {})
+                **({"response_format": response_format} if response_format else {})
             )
             output_text = response.choices[0].message.content
             print(f"[LLM] 生成完成，输出长度: {len(output_text)}")
         except APIError as e:
-            print(f"[LLM] API 错误: {e}")
-            raise
+            # Moonshot 旧版/部分模型不支持 json_schema，自动降级为 json_object
+            status_code = getattr(e, "status_code", None) or getattr(e, "http_status", None)
+            if used_schema and status_code in (400, 422):
+                print(f"[LLM] JSON Schema 模式不受支持 (status={status_code})，降级为 json_object 模式")
+                response_format = self._build_response_format(force_json=True, json_schema=None)
+                try:
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        max_tokens=self.max_tokens,
+                        temperature=self.temperature,
+                        **({"response_format": response_format} if response_format else {})
+                    )
+                    output_text = response.choices[0].message.content
+                    print(f"[LLM] 降级后生成完成，输出长度: {len(output_text)}")
+                except Exception as e2:
+                    print(f"[LLM] 降级后请求失败: {e2}")
+                    raise
+            else:
+                print(f"[LLM] API 错误: {e}")
+                raise
         except APITimeoutError as e:
             print(f"[LLM] 请求超时: {e}")
             raise
@@ -136,7 +184,8 @@ class KimiService:
         self,
         prompt: str,
         system_prompt: str = "",
-        force_json: bool = False
+        force_json: bool = False,
+        json_schema: dict = None,
     ) -> Generator[str, None, None]:
         """纯文字流式生成回复（云端 Kimi 不接触图像/视频）"""
         messages = []
@@ -146,6 +195,8 @@ class KimiService:
 
         print(f"[LLM Stream] 开始流式文字请求")
 
+        response_format = self._build_response_format(force_json, json_schema)
+
         try:
             stream = self.client.chat.completions.create(
                 model=self.model,
@@ -153,11 +204,24 @@ class KimiService:
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
                 stream=True,
-                **({"response_format": {"type": "json_object"}} if force_json else {})
+                **({"response_format": response_format} if response_format else {})
             )
         except Exception as e:
             print(f"[LLM Stream] 启动流式请求失败: {e}")
             raise
+
+        generated_text = ""
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                text = chunk.choices[0].delta.content
+                generated_text += text
+                yield text
+
+        print(f"[LLM Stream] 流式生成完成: {len(generated_text)} 字符")
+
+        # 保存到对话历史
+        if system_prompt:
+            self.conversation.add_message("user", prompt[:500])
 
         generated_text = ""
         for chunk in stream:
