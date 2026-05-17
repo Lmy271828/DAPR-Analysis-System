@@ -65,6 +65,7 @@ generate_ppt.py
 test*.jpeg
 test*.jpg
 test*.png
+error*.png
 run_comfyui_e2e.sh
 DAPR-agent/test_image_service.py
 node_modules/
