@@ -717,7 +717,7 @@ class LocalVLMService:
             images=[drawing_path],
             force_json=True,
             json_schema=image_schema,
-            max_new_tokens=4096,
+            max_new_tokens=256,  # 图像分析通常 <500 chars，限制空间防止循环填充
         ):
             image_response += chunk
             yield (chunk, None)
@@ -755,7 +755,7 @@ class LocalVLMService:
                 video_max_frames=LOCAL_VLM_CONFIG.get("video_max_frames", 10),
                 force_json=True,
                 json_schema=video_schema,
-                max_new_tokens=4096,
+                max_new_tokens=512,  # 视频分析两个数组，留比图像更多余量
             ):
                 video_response += chunk
                 yield (chunk, None)

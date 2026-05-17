@@ -55,7 +55,7 @@ LOCAL_VLM_CONFIG = {
     "do_sample": True,               # False=贪婪解码（易循环）；True=采样（推荐）
     "temperature": 0.1,              # 低温度保持高确定性，同时打破贪婪陷阱
     "top_p": 0.9,                    # nucleus sampling 阈值
-    "repetition_penalty": 1.05,      # 重复惩罚（1.0=无惩罚，1.05~1.15 对 Qwen 效果较好）
+    "repetition_penalty": 1.08,      # 重复惩罚（1.0=无惩罚，1.05~1.15 对 Qwen 效果较好）
 }
 
 # ComfyUI 配置
