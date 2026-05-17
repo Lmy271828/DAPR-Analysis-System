@@ -178,11 +178,5 @@ class AgentOrchestrator:
         except Exception:
             pass
     
-    def get_plan(self, session_id: str) -> Optional[Plan]:
-        """获取会话的当前 Plan"""
-        return self.plans.get(session_id)
-    
-    def is_running(self, session_id: str) -> bool:
-        """检查会话是否有运行中的 Plan"""
-        task = self.running.get(session_id)
-        return task is not None and not task.done()
+    # NOTE: get_plan() 和 is_running() 已于 2026-05-18 移除。
+    # 当前通过直接访问 self.plans / self.running 获取状态。

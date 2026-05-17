@@ -5,7 +5,7 @@
 import os
 from pathlib import Path
 
-from db_models import init_db, get_session_local
+from db_models import init_db
 
 
 DB_PATH = os.environ.get("DAPR_DB_PATH", "./data/dapr.db")
@@ -26,7 +26,6 @@ def setup_database():
 
 def migrate_json_to_db():
     """将现有的本地 JSON 会话文件迁移到数据库"""
-    from pathlib import Path
     from models import Session
     from config import SESSIONS_DIR
     from db_models import get_session_local, SessionModel, _encrypt_field

@@ -8,8 +8,7 @@ from datetime import datetime
 from typing import Optional, Any
 
 from sqlalchemy import (
-    create_engine, Column, String, DateTime, Boolean, JSON, Text,
-    inspect
+    create_engine, Column, String, DateTime, Boolean, JSON, Text
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, Session as DBSession
 

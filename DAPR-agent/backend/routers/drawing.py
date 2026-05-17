@@ -238,7 +238,7 @@ async def analyze_drawing_task_stream(session_id: str):
             session.initial_analysis = analysis_result
             # 本地 VLM 只产出 analysis，questions 由 InterviewAgent 动态生成
             session.questions_asked = []
-            session.status = SessionStatus.QUESTIONING
+            session.status = SessionStatus.CONVERSING
             session.save(SESSIONS_DIR)
         else:
             print(f"[Analysis Stream] 警告: 未收到分析结果")

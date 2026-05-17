@@ -12,7 +12,6 @@ import re
 import tempfile
 import threading
 from typing import List, Dict, Optional, Generator, Tuple
-from pathlib import Path
 
 # OpenAI SDK 用于调用 Kimi API (Moonshot 提供 OpenAI 兼容接口)
 from openai import OpenAI, APIError, APITimeoutError
@@ -209,19 +208,6 @@ class KimiService:
         except Exception as e:
             print(f"[LLM Stream] 启动流式请求失败: {e}")
             raise
-
-        generated_text = ""
-        for chunk in stream:
-            if chunk.choices[0].delta.content:
-                text = chunk.choices[0].delta.content
-                generated_text += text
-                yield text
-
-        print(f"[LLM Stream] 流式生成完成: {len(generated_text)} 字符")
-
-        # 保存到对话历史
-        if system_prompt:
-            self.conversation.add_message("user", prompt[:500])
 
         generated_text = ""
         for chunk in stream:
@@ -693,8 +679,6 @@ class LocalVLMService:
         Batch A: 绘画成品 → drawing_features
         Batch B: webcam + canvas 视频 → expression_observation + process_observation
         """
-        import os
-
         has_webcam = webcam_video and os.path.exists(webcam_video)
         has_screen = canvas_video and os.path.exists(canvas_video)
 

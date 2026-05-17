@@ -66,7 +66,7 @@ async def select_image(session_id: str, request: SelectImageRequest):
 
 
 @router.post("/{session_id}/final-answers")
-async def submit_final_answers(request: FinalAnswerRequest):
+async def submit_final_answers(session_id: str, request: FinalAnswerRequest):
     """提交最终回答，生成完整报告"""
     session = Session.load(request.session_id, SESSIONS_DIR)
     if not session:

@@ -19,13 +19,11 @@ from config import (
     SERVER_HOST, SERVER_PORT,
     LOCAL_VLM_CONFIG,
 )
-from models import TherapistLog
 from image_service import close_image_service
 from database import setup_database
 from agent import ToolWrapper, NotifyUserTool
 from agent.interview_agent import InterviewAgent
-from dependencies import manager, orchestrator, interview_agents, log_to_therapist
-
+from dependencies import manager, orchestrator
 
 # FastAPI 应用
 app = FastAPI(title="DAPR Agent", version="1.0.0")

@@ -207,30 +207,6 @@ class Session:
 
 
 @dataclass
-class AnalysisResult:
-    """分析结果"""
-    timestamp: str
-    drawing_features: Dict[str, Any]       # 绘画特征
-    process_analysis: Dict[str, Any]        # 过程分析
-    expression_analysis: Dict[str, Any]     # 表情分析
-    summary: str                            # 总结
-    questions: List[str]                    # 要问用户的问题
-    hypotheses: List[Dict[str, str]]        # 心理猜想
-
-
-@dataclass
-class GeneratedImage:
-    """生成的图像"""
-    id: str
-    hypothesis_id: str                      # 对应哪个猜想
-    name: str                               # 版本名称
-    description: str                        # 心理意义
-    prompt: str                             # 使用的提示词
-    filepath: str                           # 文件路径
-    created_at: str
-
-
-@dataclass
 class TherapistLog:
     """心理咨询师日志条目"""
     timestamp: str
