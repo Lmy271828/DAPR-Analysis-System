@@ -73,7 +73,7 @@
 | **main.py** | FastAPI主服务，提供REST API和WebSocket接口，管理会话生命周期 |
 | **services/llm/core.py** | 双模型LLM服务：本地Qwen3.5 VLM(多模态分析) + 云端Kimi-K2.5(纯文字任务) |
 | **services/llm/parsers.py** | JSON解析、契约验证、约束解码集成 |
-| **image_service.py** | ComfyUI异步图像生成服务，批量提交+并行轮询，FP4量化降低显存占用 |
+| **image_service.py** | ComfyUI异步图像生成服务，批量提交+并行轮询，NVFP4/FP4 量化降低显存占用 |
 | **agent/** | Agent编排模块：Tool Registry + Plan Engine + Orchestrator + InterviewAgent |
 | **models.py** | 数据模型定义，会话状态管理与数据持久化 |
 | **db_models.py** | SQLAlchemy ORM模型，支持自动迁移 |
@@ -494,21 +494,48 @@ pip install -r requirements.txt
 #### 步骤4：安装并配置ComfyUI
 
 ```bash
-# 克隆ComfyUI（在项目根目录的上一级）
-cd ..
-git clone https://github.com/Comfy-Org/ComfyUI.git
+# 克隆ComfyUI（项目已将其作为子目录包含，也可独立克隆）
 cd ComfyUI
 pip install -r requirements.txt
+```
 
-# 下载模型权重（已预置在项目 ComfyUI/models/ 目录中）
-# diffusion_models/flux-2-klein-4b-nvfp4.safetensors  (2.3GB, NVFP4, RTX 50系推荐)
-#   备选: flux-2-klein-4b-fp8.safetensors  (3.8GB, FP8)
-# text_encoders/qwen_3_4b_fp4_flux2.safetensors      (3.6GB, FP4)
-#   下载地址: https://huggingface.co/Comfy-Org/vae-text-encorder-for-flux-klein-4b/tree/main/split_files/text_encoders
-# text_encoders/qwen_3_4b.safetensors                (7.5GB, 备用)
-# vae/flux2-vae.safetensors                          (321MB)
+**下载模型权重并放置到对应目录：**
 
-# 启动ComfyUI（高显存模式，模型常驻显存）
+| 模型 | 文件名 | 大小 | 放置路径 | 下载地址 |
+|------|--------|------|----------|----------|
+| **扩散模型** (必选) | `flux-2-klein-4b-nvfp4.safetensors` | ~2.5GB | `ComfyUI/models/diffusion_models/` | [Hugging Face](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B/resolve/main/flux-2-klein-4b-nvfp4.safetensors) |
+| **扩散模型** (备选) | `flux-2-klein-4b-fp8.safetensors` | ~3.8GB | `ComfyUI/models/diffusion_models/` | [Hugging Face](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B/resolve/main/flux-2-klein-4b-fp8.safetensors) |
+| **Text Encoder** (必选) | `qwen_3_4b_fp4_flux2.safetensors` | ~3.8GB | `ComfyUI/models/text_encoders/` | [Hugging Face](https://huggingface.co/Comfy-Org/vae-text-encoder-for-flux-klein-4b/resolve/main/split_files/text_encoders/qwen_3_4b_fp4_flux2.safetensors) |
+| **Text Encoder** (备选) | `qwen_3_4b.safetensors` | ~7.5GB | `ComfyUI/models/text_encoders/` | [Hugging Face](https://huggingface.co/Comfy-Org/vae-text-encoder-for-flux-klein-4b/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors) |
+| **VAE** (必选) | `flux2-vae.safetensors` | ~336MB | `ComfyUI/models/vae/` | [Hugging Face](https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors) |
+
+**快速下载命令（需安装 [huggingface-cli](https://huggingface.co/docs/huggingface_hub/guides/cli)）：**
+
+```bash
+# 扩散模型（NVFP4，8GB显存推荐）
+huggingface-cli download black-forest-labs/FLUX.2-klein-4B \
+  flux-2-klein-4b-nvfp4.safetensors \
+  --local-dir ComfyUI/models/diffusion_models
+
+# Text Encoder（FP4）
+huggingface-cli download Comfy-Org/vae-text-encoder-for-flux-klein-4b \
+  split_files/text_encoders/qwen_3_4b_fp4_flux2.safetensors \
+  --local-dir ComfyUI/models/text_encoders
+
+# VAE
+huggingface-cli download Comfy-Org/flux2-dev \
+  split_files/vae/flux2-vae.safetensors \
+  --local-dir ComfyUI/models/vae
+```
+
+**国内镜像加速：**
+```bash
+export HF_ENDPOINT=https://hf-mirror.com
+# 然后执行上述 huggingface-cli 命令
+```
+
+**启动ComfyUI（高显存模式，模型常驻显存）：**
+```bash
 bash DAPR-agent/scripts/comfyui_start.sh
 ```
 
@@ -691,8 +718,8 @@ CANVAS_CONFIG = {
 |------|----------|
 | **内容生成失败** | 确认 MOONSHOT_API_KEY 已正确设置 |
 | **本地VLM加载失败** | 确认 model/ 目录下存在 Qwen3.5 AWQ INT4 权重文件 |
-| **ComfyUI连接失败** | 确认ComfyUI服务已启动，检查config.py中的地址配置。若显存不足，尝试切换 FP4 text encoder |
-| **显存OOM** | 确认使用 FP4 encoder（3.6GB），8GB显存即可运行。或调小 `video_max_pixels` / `image_max_pixels` |
+| **ComfyUI连接失败** | 确认ComfyUI服务已启动（`bash DAPR-agent/scripts/comfyui_start.sh`），检查 `config.py` 中的地址配置 |
+| **显存OOM** | 当前默认配置已为 8GB 显存优化：扩散模型使用 NVFP4 (`flux-2-klein-4b-nvfp4.safetensors`, 2.5GB) + Text Encoder 使用 FP4 (`qwen_3_4b_fp4_flux2.safetensors`, 3.8GB)。如需进一步降低显存，可关闭本地VLM改用云端分析 |
 | **密钥未设置** | 确认 `DAPR_ENCRYPTION_KEY` 环境变量已正确设置，否则会话数据无法保存 |
 | **视频录制失败** | 确保使用HTTPS或localhost，检查浏览器权限设置 |
 | **JSON解析失败** | 检查 Qwen3.5 是否按指定 Schema 输出；lm-format-enforcer 约束解码会自动保障合法 JSON |
@@ -703,7 +730,7 @@ CANVAS_CONFIG = {
 
 - 所有用户数据仅存储于本地 SQLite 数据库，敏感字段（回答、视频路径）经 Fernet 对称加密
 - 原始绘画/视频仅由本地 Qwen3.5 VLM 处理，云端 Kimi 只接收文字分析摘要，实现隐私零泄露
-- 编辑后的图片存储在 `/DAPR-agent/outputs/`
+- 编辑后的图片存储在 `ComfyUI/outputs/`
 - 数据仅用于当前会话分析，不用于模型训练或外部共享
 - 建议在使用前获取用户知情同意，并在引导页勾选确认
 
