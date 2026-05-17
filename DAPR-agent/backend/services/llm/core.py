@@ -584,7 +584,10 @@ class LocalVLMService:
             generation_kwargs = dict(
                 **inputs,
                 max_new_tokens=max_new_tokens or LOCAL_VLM_CONFIG.get("max_new_tokens", 512),
-                do_sample=False,
+                do_sample=LOCAL_VLM_CONFIG.get("do_sample", True),
+                temperature=LOCAL_VLM_CONFIG.get("temperature", 0.1),
+                top_p=LOCAL_VLM_CONFIG.get("top_p", 0.9),
+                repetition_penalty=LOCAL_VLM_CONFIG.get("repetition_penalty", 1.05),
             )
 
             # ── 约束解码：lm-format-enforcer ──
@@ -639,7 +642,10 @@ class LocalVLMService:
             inputs,
             streamer=streamer,
             max_new_tokens=max_new_tokens or LOCAL_VLM_CONFIG.get("max_new_tokens", 2048),
-            do_sample=False,
+            do_sample=LOCAL_VLM_CONFIG.get("do_sample", True),
+            temperature=LOCAL_VLM_CONFIG.get("temperature", 0.1),
+            top_p=LOCAL_VLM_CONFIG.get("top_p", 0.9),
+            repetition_penalty=LOCAL_VLM_CONFIG.get("repetition_penalty", 1.05),
         )
 
         # ── 约束解码：lm-format-enforcer ──

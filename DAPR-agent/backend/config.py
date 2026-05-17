@@ -50,6 +50,12 @@ LOCAL_VLM_CONFIG = {
     "video_max_pixels": 4_000_000,   # 视频总像素预算（帧数×高×宽），4M 对应 10 帧画布(346×448)+摄像头(448×448)
     "image_max_pixels": 1_000_000,   # 图像总像素预算
     "use_local_vlm": os.environ.get("USE_LOCAL_VLM", "true").lower() in ("true", "1", "yes"),
+    # === 采样参数：防止小模型循环输出 ===
+    # Qwen3.5-2B 在贪婪解码(do_sample=False)下容易陷入重复，建议启用低温度采样
+    "do_sample": True,               # False=贪婪解码（易循环）；True=采样（推荐）
+    "temperature": 0.1,              # 低温度保持高确定性，同时打破贪婪陷阱
+    "top_p": 0.9,                    # nucleus sampling 阈值
+    "repetition_penalty": 1.05,      # 重复惩罚（1.0=无惩罚，1.05~1.15 对 Qwen 效果较好）
 }
 
 # ComfyUI 配置
