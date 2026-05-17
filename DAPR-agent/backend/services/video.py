@@ -16,8 +16,9 @@ class VideoUtils:
     @staticmethod
     def get_video_info(video_path: str) -> Dict:
         """
-        获取视频信息（时长、帧率、帧数等）
-        使用多种方法尝试获取准确信息
+        获取视频信息（时长、帧率、分辨率）
+        统一使用 ffprobe 从 format 读 duration，从 stream 读 fps/分辨率
+        不再用帧数反推时长（避免 VFR/硬编码 fps 导致的误差）
         返回: {"duration": float, "fps": float, "total_frames": int, "width": int, "height": int}
         """
         if not os.path.exists(video_path):
@@ -27,142 +28,49 @@ class VideoUtils:
         file_size = os.path.getsize(video_path)
         print(f"[VideoUtils] 视频文件: {video_path} ({file_size / 1024 / 1024:.2f} MB)")
 
-        # 方法1: 使用 ffprobe 获取完整信息
-        info = VideoUtils._probe_full_info(video_path)
-        if info.get('duration', 0) > 0:
-            return info
-
-        # 方法2: 尝试从 format 层面获取时长
-        duration = VideoUtils._probe_duration_only(video_path)
-        if duration > 0:
-            print(f"[VideoUtils] 从format获取时长: {duration:.1f}s")
-            return {
-                "duration": duration,
-                "fps": 25.0,
-                "total_frames": int(duration * 25),
-                "width": 640,
-                "height": 480
-            }
-
-        # 方法3: 使用 ffmpeg 计数实际帧数（最准确但较慢）
-        frame_count = VideoUtils._count_frames(video_path)
-        if frame_count > 0:
-            # 假设默认fps=25，反推时长
-            estimated_duration = frame_count / 25.0
-            print(f"[VideoUtils] 通过帧数计算时长: {frame_count}帧 / 25fps = {estimated_duration:.1f}s")
-            return {
-                "duration": estimated_duration,
-                "fps": 25.0,
-                "total_frames": frame_count,
-                "width": 640,
-                "height": 480
-            }
-
-        # 方法4: 基于文件大小估算（最后降级方案）
-        estimated_duration = (file_size * 8) / (2 * 1024 * 1024)  # 假设2Mbps码率
-        print(f"[VideoUtils] 基于文件大小估算时长: {estimated_duration:.1f}s")
-        return {
-            "duration": max(estimated_duration, 10.0),  # 至少10秒
-            "fps": 25.0,
-            "total_frames": int(estimated_duration * 25),
-            "width": 640,
-            "height": 480
-        }
-
-    @staticmethod
-    def _probe_full_info(video_path: str) -> Dict:
-        """使用 ffprobe 获取完整视频信息"""
+        # 统一方法: 从 format 读取 duration，从 stream 读取 fps/分辨率
         try:
             cmd = [
                 'ffprobe', '-v', 'error',
-                '-select_streams', 'v:0',
-                '-show_entries', 'stream=duration,r_frame_rate,nb_frames,width,height',
+                '-show_entries', 'format=duration',
+                '-show_entries', 'stream=r_frame_rate,width,height',
                 '-of', 'json', video_path
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
 
-            if result.returncode != 0:
-                return {}
+            if result.returncode == 0:
+                data = json.loads(result.stdout)
+                format_info = data.get('format', {})
+                stream = data.get('streams', [{}])[0]
 
-            data = json.loads(result.stdout)
-            stream = data.get('streams', [{}])[0]
+                duration = float(format_info.get('duration', 0))
 
-            if not stream:
-                return {}
+                fps_str = stream.get('r_frame_rate', '0/1')
+                if '/' in fps_str:
+                    num, den = fps_str.split('/')
+                    fps = float(num) / float(den) if float(den) != 0 else 0
+                else:
+                    fps = float(fps_str)
 
-            # 解析帧率
-            fps_str = stream.get('r_frame_rate', '0/1')
-            if '/' in fps_str:
-                num, den = fps_str.split('/')
-                fps = float(num) / float(den) if float(den) != 0 else 0
-            else:
-                fps = float(fps_str)
+                width = int(stream.get('width', 0))
+                height = int(stream.get('height', 0))
 
-            duration = float(stream.get('duration', 0))
-            total_frames = int(stream.get('nb_frames', 0))
-            width = int(stream.get('width', 0))
-            height = int(stream.get('height', 0))
-
-            if total_frames <= 0 and duration > 0 and fps > 0:
-                total_frames = int(duration * fps)
-
-            if duration > 0:
-                print(f"[VideoUtils] 完整信息: 时长={duration:.1f}s, fps={fps:.1f}, 帧数={total_frames}, 分辨率={width}x{height}")
-
-            return {
-                "duration": duration,
-                "fps": fps if fps > 0 else 25.0,
-                "total_frames": total_frames,
-                "width": width if width > 0 else 640,
-                "height": height if height > 0 else 480
-            }
+                if duration > 0 and fps > 0:
+                    total_frames = int(duration * fps)
+                    print(f"[VideoUtils] format duration={duration:.1f}s, fps={fps:.1f}, 分辨率={width}x{height}")
+                    return {
+                        "duration": duration,
+                        "fps": fps,
+                        "total_frames": total_frames,
+                        "width": width if width > 0 else 640,
+                        "height": height if height > 0 else 480
+                    }
         except Exception as e:
-            print(f"[VideoUtils] _probe_full_info 失败: {e}")
-            return {}
+            print(f"[VideoUtils] ffprobe 读取失败: {e}")
 
-    @staticmethod
-    def _probe_duration_only(video_path: str) -> float:
-        """仅获取视频时长"""
-        try:
-            cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-                   '-of', 'default=noprint_wrappers=1:nokey=1', video_path]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-
-            if result.returncode == 0 and result.stdout.strip():
-                duration_str = result.stdout.strip()
-                # 处理 'N/A' 或其他非数字字符串
-                if duration_str.upper() == 'N/A' or not duration_str.replace('.', '').replace('-', '').isdigit():
-                    return 0
-                duration = float(duration_str)
-                return duration if duration > 0 else 0
-        except (ValueError, TypeError) as e:
-            print(f"[VideoUtils] _probe_duration_only 转换失败: {e}")
-        except Exception as e:
-            print(f"[VideoUtils] _probe_duration_only 失败: {e}")
-        return 0
-
-    @staticmethod
-    def _count_frames(video_path: str) -> int:
-        """计数视频实际帧数（较慢但准确）"""
-        try:
-            cmd = [
-                'ffprobe', '-v', 'error',
-                '-count_frames',
-                '-select_streams', 'v:0',
-                '-show_entries', 'stream=nb_read_frames',
-                '-of', 'default=noprint_wrappers=1:nokey=1',
-                video_path
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-
-            if result.returncode == 0 and result.stdout.strip():
-                frame_count = int(result.stdout.strip())
-                if frame_count > 0:
-                    print(f"[VideoUtils] 实际帧数: {frame_count}")
-                    return frame_count
-        except Exception as e:
-            print(f"[VideoUtils] _count_frames 失败: {e}")
-        return 0
+        # ffprobe 无法读取，返回空值让调用方处理
+        print(f"[VideoUtils] 无法获取视频信息，返回空值")
+        return {"duration": 0, "fps": 0, "total_frames": 0, "width": 0, "height": 0}
 
     @staticmethod
     def _format_video_info(info: Dict, video_name: str) -> str:
