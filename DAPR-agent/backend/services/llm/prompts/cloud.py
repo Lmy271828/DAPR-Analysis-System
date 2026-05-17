@@ -1,78 +1,10 @@
 """
-LLM Prompt 构建函数
+云端 LLM Prompt 模块（纯文字任务专用）
 
-本模块负责根据用户画像、素材类型和会话状态，动态组装提示文本。
-采用"分层提示组装"架构：
-  Layer 1: 核心系统提示（static，所有 session 共享）
-  Layer 2: 知识片段（根据 user_profile 动态选择注入）
-  Layer 3: 任务指令 + 素材描述（运行时动态生成）
+负责后续问题生成、最终报告、图像变体指令等纯文字任务，不涉及图像/视频分析。
 """
 import json
-from typing import Dict, List, Optional
-
-from services.llm.knowledge import get_knowledge_fragments, get_analysis_knowledge, get_interview_knowledge
-
-
-# ───────────────────────────────────────────────
-# 知识片段选择（从 dapr_knowledge_base/ 文件加载）
-# ───────────────────────────────────────────────
-
-def select_knowledge_fragments(
-    user_profile: Optional[Dict] = None
-) -> str:
-    """根据用户画像选择相关知识片段注入提示。
-
-    当前从 dapr_knowledge_base/ 文件动态加载，保留原有接口。
-    未来若支持多语言/多文化/多年龄段，可升级为 sqlite-vec 轻量检索。
-    """
-    return get_analysis_knowledge(user_profile=user_profile)
-
-
-# ───────────────────────────────────────────────
-# Prompt 构建函数
-# ───────────────────────────────────────────────
-
-def build_analysis_prompt(
-    has_webcam: bool,
-    has_screen: bool,
-    video_info_section: str,
-    user_profile: Optional[Dict] = None,
-) -> str:
-    """构建绘画分析 prompt。
-
-    Args:
-        has_webcam: 是否有 webcam 视频
-        has_screen: 是否有 canvas 录制视频
-        video_info_section: 视频元信息描述文本
-        user_profile: 用户画像，可选字段：age(int), culture(str)
-    """
-    knowledge_fragments = select_knowledge_fragments(user_profile)
-
-    return f"""请分析提供的素材（视频帧按时序排列）
-1. 第一张图像：绘画成品
-{"2. 第一个视频：绘画时的面部表情变化" if has_webcam else ""}
-{("3. 第二个视频：绘画过程" if has_webcam else "2. 第一个视频：绘画过程") if has_screen else ""}
-{video_info_section}
-
-{knowledge_fragments}
-
-JSON结构必须包含以下字段：
-{{
-  "drawing_features": ["...", "..."],
-  "expression_observation": ["...", "..."],
-  "process_observation": ["...", "..."]
-}}
-
-【严格输出契约（必须遵守）】
-仅返回 JSON，不要 markdown，不要解释文字，不要多余前后缀。
-输出必须为以下结构：
-{{
-  "drawing_features": ["画面中画有雨滴...", "画面中画有云..."],
-  "expression_observation": ["开始绘画时表情专注...", "..."],
-  "process_observation": ["先画人物轮廓...", "..."]
-}}
-三个字段必须是字符串数组，每个元素是一条独立的观察描述。
-禁止输出任何其他顶层字段。"""
+from typing import Dict, List
 
 
 def build_edit_instructions_prompt(analysis_summary: str, hypotheses: List[Dict]) -> str:

@@ -183,6 +183,7 @@ h2 {
     padding: 20px;
     border-bottom: 1px solid var(--border-color);
     gap: 15px;
+    flex-wrap: wrap;
 }
 
 .permission-item:last-child {
@@ -191,12 +192,14 @@ h2 {
 
 .permission-item .icon {
     font-size: 1.5rem;
-    width: 40px;
+    min-width: 50px;
     text-align: center;
+    flex-shrink: 0;
 }
 
 .permission-item span:nth-child(2) {
     flex: 1;
+    min-width: 140px;
 }
 
 .status {
