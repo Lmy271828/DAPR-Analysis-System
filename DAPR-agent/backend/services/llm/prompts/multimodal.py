@@ -8,7 +8,7 @@
 两批独立推理，结果合并后返回。
 """
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 from services.llm.knowledge import get_analysis_knowledge
 
 

@@ -406,13 +406,18 @@ class LocalVLMService:
             cls._processor = AutoProcessor.from_pretrained(
                 model_path, trust_remote_code=True
             )
-            # 尝试启用 Flash Attention 2 以降低 vision/text attention 峰值显存
-            attn_impl = "flash_attention_2"
-            try:
-                import flash_attn  # noqa: F401
-            except ImportError:
+            # Attention 实现选择：默认 SDPA，短序列下开销更小
+            if LOCAL_VLM_CONFIG.get("use_flash_attn", False):
+                attn_impl = "flash_attention_2"
+                try:
+                    import flash_attn  # noqa: F401
+                    print("[LocalVLM] Flash Attention 2 已启用")
+                except ImportError:
+                    attn_impl = "sdpa"
+                    print("[LocalVLM] flash-attn 未安装，回退到 SDPA")
+            else:
                 attn_impl = "sdpa"
-                print("[LocalVLM] flash-attn 未安装，回退到 SDPA")
+                print("[LocalVLM] 使用 SDPA（默认，短序列开销更小）")
             cls._model = Qwen3_5ForConditionalGeneration.from_pretrained(
                 model_path,
                 torch_dtype=torch.bfloat16,

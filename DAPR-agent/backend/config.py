@@ -50,6 +50,11 @@ LOCAL_VLM_CONFIG = {
     "video_max_pixels": 4_000_000,   # 视频总像素预算（帧数×高×宽），4M 对应 10 帧画布(346×448)+摄像头(448×448)
     "image_max_pixels": 1_000_000,   # 图像总像素预算
     "use_local_vlm": os.environ.get("USE_LOCAL_VLM", "true").lower() in ("true", "1", "yes"),
+    # === Attention 实现选择 ===
+    # Flash Attention 2 在长序列（>2k tokens）下显存优势显著，但本系统生成序列短
+    #（图像分析 <500 tokens，视频分析 <1k tokens），SDPA 开销更小且无需额外依赖。
+    # 如需启用 flash-attn-2，设为 True 并确保已安装 flash-attn 包。
+    "use_flash_attn": os.environ.get("USE_FLASH_ATTN", "false").lower() in ("true", "1", "yes"),
     # === 采样参数：防止小模型循环输出 ===
     # Qwen3.5-2B 在贪婪解码(do_sample=False)下容易陷入重复，建议启用低温度采样
     "do_sample": True,               # False=贪婪解码（易循环）；True=采样（推荐）
