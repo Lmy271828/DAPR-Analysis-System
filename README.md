@@ -461,13 +461,26 @@ class Session:
 1. 访问 [Moonshot AI官网](https://www.moonshot.cn/)
 2. 注册账号并登录
 3. 进入控制台获取API Key
-4. 在终端设置环境变量：
+4. 复制环境变量模板并填入实际值：
 
 ```bash
-export MOONSHOT_API_KEY='your-kimi-api-key'
-export DAPR_ENCRYPTION_KEY='your-32-byte-base64-key'  # 本地数据加密密钥
-# 生成密钥：python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+cp .env.example .env
+# 编辑 .env 文件，填入你的 API Key 和加密密钥
 ```
+
+`.env` 文件示例：
+```bash
+MOONSHOT_API_KEY='your-kimi-api-key'
+DAPR_ENCRYPTION_KEY='your-32-byte-base64-key='
+```
+
+> 生成加密密钥：`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+>
+> 或直接 export 环境变量（不推荐，重启终端会丢失）：
+> ```bash
+> export MOONSHOT_API_KEY='your-kimi-api-key'
+> export DAPR_ENCRYPTION_KEY='your-32-byte-base64-key'
+> ```
 
 ### 3.2 安装步骤
 

@@ -4,6 +4,11 @@ DAPR Agent 系统配置
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# 加载 .env 文件（如果存在）
+load_dotenv(Path(__file__).parent.parent / ".env")
+
 # 基础路径
 BASE_DIR = Path(__file__).parent.parent
 PROJECT_ROOT = BASE_DIR.parent  # flux2 项目根目录

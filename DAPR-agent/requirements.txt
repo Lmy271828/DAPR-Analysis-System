@@ -23,6 +23,9 @@ alembic==1.18.4
 # ── 安全 ──
 cryptography==48.0.0
 
+# ── 环境变量 ──
+python-dotenv==1.1.0
+
 # ── LLM / API ──
 openai==2.37.0
 transformers==5.8.1
