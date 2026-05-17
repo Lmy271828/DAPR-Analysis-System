@@ -58,33 +58,20 @@ def build_analysis_prompt(
 
 JSON结构必须包含以下字段：
 {{
-  "analysis": {{...详细分析...}},
-  "questions_for_user": ["问题1", "问题2", "问题3"],
-  "psychological_guesstimates": ["猜想1", "猜想2", "猜想3"]
+  "drawing_features": ["...", "..."],
+  "expression_observation": ["...", "..."],
+  "process_observation": ["...", "..."]
 }}
-
-对受试者的提问应简洁明了
 
 【严格输出契约（必须遵守）】
 仅返回 JSON，不要 markdown，不要解释文字，不要多余前后缀。
-输出必须为以下顶层结构之一：
-1) 成功：
+输出必须为以下结构：
 {{
-  "status": "ok",
-  "data": {{
-    "analysis": {{...}},
-    "questions_for_user": ["..."],
-    "psychological_guesstimates": ["..."]
-  }}
+  "drawing_features": ["画面中画有雨滴...", "画面中画有云..."],
+  "expression_observation": ["开始绘画时表情专注...", "..."],
+  "process_observation": ["先画人物轮廓...", "..."]
 }}
-2) 无法确定/失败：
-{{
-  "status": "unknown",
-  "error": {{
-    "code": "INSUFFICIENT_INFO",
-    "message": "原因"
-  }}
-}}
+三个字段必须是字符串数组，每个元素是一条独立的观察描述。
 禁止输出任何其他顶层字段。"""
 
 

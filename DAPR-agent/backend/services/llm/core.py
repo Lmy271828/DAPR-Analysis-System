@@ -564,6 +564,7 @@ class LocalVLMService:
         video_max_frames: int = 10,
         force_json: bool = False,
         json_schema: dict = None,
+        max_new_tokens: int = None,
     ) -> str:
         images = images or []
         videos = videos or []
@@ -582,7 +583,7 @@ class LocalVLMService:
             # 构建 generation 参数
             generation_kwargs = dict(
                 **inputs,
-                max_new_tokens=LOCAL_VLM_CONFIG.get("max_new_tokens", 512),
+                max_new_tokens=max_new_tokens or LOCAL_VLM_CONFIG.get("max_new_tokens", 512),
                 do_sample=False,
             )
 
@@ -619,6 +620,7 @@ class LocalVLMService:
         video_max_frames: int = 10,
         force_json: bool = False,
         json_schema: dict = None,
+        max_new_tokens: int = None,
     ) -> Generator[str, None, None]:
         images = images or []
         videos = videos or []
@@ -636,7 +638,7 @@ class LocalVLMService:
         generation_kwargs = dict(
             inputs,
             streamer=streamer,
-            max_new_tokens=LOCAL_VLM_CONFIG.get("max_new_tokens", 2048),
+            max_new_tokens=max_new_tokens or LOCAL_VLM_CONFIG.get("max_new_tokens", 2048),
             do_sample=False,
         )
 
@@ -712,11 +714,11 @@ class LocalVLMService:
             videos.append(canvas_video)
             video_types.append("canvas")
 
-        # 加载分析 JSON Schema（约束解码用）
+        # 加载多模态分析 JSON Schema（约束解码用）
         analysis_schema = None
         try:
-            from services.llm.schemas import ANALYSIS_JSON_SCHEMA
-            analysis_schema = ANALYSIS_JSON_SCHEMA
+            from services.llm.schemas import MULTIMODAL_ANALYSIS_SCHEMA
+            analysis_schema = MULTIMODAL_ANALYSIS_SCHEMA
         except ImportError:
             pass
 
@@ -730,12 +732,13 @@ class LocalVLMService:
             video_max_frames=LOCAL_VLM_CONFIG.get("video_max_frames", 10),
             force_json=True,
             json_schema=analysis_schema,
+            max_new_tokens=4096,
         ):
             full_response += chunk
             yield (chunk, None)
 
         print(f"[LocalVLM Stream] 分析完成，解析结果...")
-        result = parsers.parse_analysis_response_with_contract(full_response)
+        result = parsers.parse_multimodal_analysis_response(full_response)
         standardized = parsers.standardize_analysis_result(result)
         yield ("", standardized)
 

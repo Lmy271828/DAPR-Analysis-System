@@ -15,6 +15,38 @@ JSON Schema 定义 —— 用于 lm-format-enforcer 约束解码
 #                 expression_observation/process_observation
 # ═══════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════
+# 多模态分析 Schema（本地 VLM 专用）
+# 仅包含 analysis 对象，不包含 questions/hypotheses
+# ═══════════════════════════════════════════════════════════════
+
+MULTIMODAL_ANALYSIS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "drawing_features": {
+            "type": "array",
+            "items": {"type": "string"}
+        },
+        "expression_observation": {
+            "type": "array",
+            "items": {"type": "string"}
+        },
+        "process_observation": {
+            "type": "array",
+            "items": {"type": "string"}
+        }
+    },
+    "required": [
+        "drawing_features",
+        "expression_observation",
+        "process_observation"
+    ]
+}
+
+# ═══════════════════════════════════════════════════════════════
+# 完整分析 Schema（保留，用于需要 questions/hypotheses 的场景）
+# ═══════════════════════════════════════════════════════════════
+
 ANALYSIS_JSON_SCHEMA = {
     "type": "object",
     "properties": {

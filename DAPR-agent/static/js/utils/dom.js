@@ -2,8 +2,8 @@
  * DOM 工具函数
  */
 
-import { elements } from '../config.js';
-export { elements };
+import { elements as configElements } from '../config.js';
+export const elements = configElements;
 
 // 初始化DOM元素引用
 export function initElements() {

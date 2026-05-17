@@ -20,6 +20,84 @@ def clean_json_text(response: str) -> str:
     return cleaned.strip()
 
 
+# ═══════════════════════════════════════════════════════════════
+# 多模态分析契约（本地 VLM 专用）
+# ═══════════════════════════════════════════════════════════════
+
+def validate_multimodal_analysis_contract(payload: Dict[str, Any]) -> Tuple[bool, str]:
+    """校验多模态分析输出契约 —— 直接校验裸 analysis 对象（字符串数组格式）"""
+    if not isinstance(payload, dict):
+        return False, "payload不是对象"
+
+    for field in ["drawing_features", "expression_observation", "process_observation"]:
+        if field not in payload:
+            return False, f"缺少字段: {field}"
+        value = payload[field]
+        if not isinstance(value, list):
+            return False, f"{field}必须是数组"
+        if not all(isinstance(x, str) for x in value):
+            return False, f"{field}必须是字符串数组"
+    return True, ""
+
+
+def normalize_multimodal_analysis_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """将多模态分析结果统一转换为内部兼容格式"""
+    if not isinstance(payload, dict):
+        return {"raw_response": str(payload)}
+
+    # 裸 analysis 对象直接包装为内部格式
+    return {
+        "analysis": payload,
+        "questions_for_user": [],      # 本地 VLM 不生成问题
+        "psychological_guesstimates": []  # 本地 VLM 不生成猜想
+    }
+
+
+def parse_multimodal_analysis_response(response: str) -> Dict[str, Any]:
+    """解析多模态分析响应：清理 + 解析 + 基本兜底"""
+    current_text = response or ""
+
+    cleaned = clean_json_text(current_text)
+    print(f"[LLM-Multimodal] 清理后响应 ({len(cleaned)} 字符):")
+    print(cleaned[:300])
+
+    try:
+        parsed = json.loads(cleaned)
+        valid, err = validate_multimodal_analysis_contract(parsed)
+        if valid:
+            print(f"[LLM-Multimodal] 分析JSON契约校验通过")
+            return normalize_multimodal_analysis_payload(parsed)
+        print(f"[LLM-Multimodal] 契约校验失败: {err}")
+    except json.JSONDecodeError as e:
+        print(f"[LLM-Multimodal] JSON解析失败: {e}")
+    except Exception as e:
+        print(f"[LLM-Multimodal] 解析异常: {e}")
+
+    # 备用提取
+    try:
+        json_match = re.search(r'\{[\s\S]*\}', current_text or "")
+        if json_match:
+            parsed = json.loads(json_match.group())
+            valid, err = validate_multimodal_analysis_contract(parsed)
+            if valid:
+                print(f"[LLM-Multimodal] 备用解析成功")
+                return normalize_multimodal_analysis_payload(parsed)
+            print(f"[LLM-Multimodal] 备用契约校验失败: {err}")
+    except Exception as e2:
+        print(f"[LLM-Multimodal] 备用解析也失败: {e2}")
+
+    print(f"[LLM-Multimodal] 分析结果最终解析失败，返回unknown兜底")
+    return normalize_multimodal_analysis_payload({
+        "drawing_features": ["模型未返回可解析的分析结果"],
+        "expression_observation": [],
+        "process_observation": []
+    })
+
+
+# ═══════════════════════════════════════════════════════════════
+# 完整分析契约（保留，用于需要 questions/hypotheses 的场景）
+# ═══════════════════════════════════════════════════════════════
+
 def validate_analysis_contract(payload: Dict[str, Any]) -> Tuple[bool, str]:
     """校验分析输出契约 —— Schema 冻结版本：仅支持嵌套格式（analysis 对象）"""
     if not isinstance(payload, dict):
@@ -278,11 +356,17 @@ def standardize_analysis_result(result: Dict) -> Dict:
 
     # 提取分析摘要（用于对话历史）
     analysis = standardized["analysis"]
-    drawing_features = analysis.get("drawing_features", {})
+    drawing_features = analysis.get("drawing_features", [])
     summary_parts = []
-    for key, value in drawing_features.items():
-        if value:
-            summary_parts.append(f"{key}: {value}...")
+    if isinstance(drawing_features, list):
+        for item in drawing_features:
+            if item:
+                summary_parts.append(item)
+    elif isinstance(drawing_features, dict):
+        # 兼容旧格式（对象形式）
+        for key, value in drawing_features.items():
+            if value:
+                summary_parts.append(f"{key}: {value}")
     standardized["analysis_summary"] = " | ".join(summary_parts) if summary_parts else "分析完成"
 
     return standardized

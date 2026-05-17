@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import json
 import subprocess
 import time
 from datetime import datetime
@@ -235,8 +236,8 @@ async def analyze_drawing_task_stream(session_id: str):
         # 保存结果
         if analysis_result:
             session.initial_analysis = analysis_result
-            session.questions_asked = [{"question": q} for q in analysis_result.get("questions", [])]
-            session.hypotheses = analysis_result.get("hypotheses", [])
+            # 本地 VLM 只产出 analysis，questions 由 InterviewAgent 动态生成
+            session.questions_asked = []
             session.status = SessionStatus.QUESTIONING
             session.save(SESSIONS_DIR)
         else:
@@ -271,6 +272,40 @@ async def analyze_drawing_task_stream(session_id: str):
         # ── 阶段转换：卸载本地 VLM，释放显存 ──
         LocalVLMService.unload()
         print(f"[Analysis Stream] 本地 VLM 已卸载，显存释放完成")
+        
+        # ── 基于本地 VLM 的 analysis，由云端 Kimi 生成 hypotheses ──
+        from services.llm.core import create_cloud_llm_service
+        cloud_llm = create_cloud_llm_service(session_id)
+        analysis_text = json.dumps(analysis_result.get("analysis", {}), ensure_ascii=False)
+        hypotheses_prompt = f"""你是一位艺术表达引导伙伴。基于以下绘画分析，生成 3-5 个温和的探索方向（hypotheses）。
+
+【绘画分析】
+{analysis_text[:2000]}
+
+【要求】
+1. 每个方向是一个简短的开放式推测，用于引导后续对话
+2. 避免病理化语言，不使用诊断术语
+3. 使用"可能""似乎""让人想到"等不确定语气
+4. 只输出 JSON 数组，不要解释
+
+输出格式：
+[{{"id": "hypo-1", "description": "..."}}, {{"id": "hypo-2", "description": "..."}}]"""
+        try:
+            hypotheses_response = await asyncio.to_thread(
+                cloud_llm.generate, hypotheses_prompt, force_json=True
+            )
+            hypotheses_raw = json.loads(hypotheses_response)
+            if isinstance(hypotheses_raw, list):
+                session.hypotheses = hypotheses_raw
+            elif isinstance(hypotheses_raw, dict):
+                session.hypotheses = hypotheses_raw.get("hypotheses", hypotheses_raw.get("data", []))
+            else:
+                session.hypotheses = []
+            print(f"[Analysis Stream] 云端生成 hypotheses: {len(session.hypotheses)} 个")
+        except Exception as e:
+            print(f"[Analysis Stream] 云端生成 hypotheses 失败: {e}")
+            session.hypotheses = []
+        session.save(SESSIONS_DIR)
         
         # ── 同步启动第二阶段（云端问答）和第三阶段（ComfyUI 预热）──
         session.status = SessionStatus.CONVERSING
