@@ -52,7 +52,10 @@ class InterviewAgent:
         
         # 本地 VLM 分析结果（文字摘要，由外部注入）
         self._analysis_result: Optional[Dict] = None
-        
+
+        # 用户画像（年龄、文化背景等，用于知识库动态注入）
+        self._user_profile: Optional[Dict] = None
+
         # LLM 服务延迟初始化（避免循环导入）
         self._llm = None
     
@@ -77,6 +80,29 @@ class InterviewAgent:
     def set_analysis_result(self, result: Dict):
         """注入本地 VLM 分析结果（Qwen3.5 文字输出）"""
         self._analysis_result = result
+
+    def set_user_profile(self, profile: Dict):
+        """注入用户画像（用于知识库动态筛选）
+
+        profile 可选字段:
+            - age(int): 年龄，用于 age_guidelines 聚焦
+            - culture(str): 文化背景，用于 cultural_adaptation 聚焦
+            - gender(str): 性别，保留
+        """
+        self._user_profile = profile
+        print(f"[InterviewAgent] 用户画像已注入: {profile}")
+
+    def _get_knowledge_context(self) -> str:
+        """获取访谈阶段应注入的知识库上下文"""
+        try:
+            import sys
+            from pathlib import Path
+            sys.path.insert(0, str(Path(__file__).parent.parent))
+            from services.llm.knowledge import get_interview_knowledge
+            return get_interview_knowledge(user_profile=self._user_profile)
+        except Exception as e:
+            print(f"[InterviewAgent] 知识库加载失败: {e}")
+            return ""
     
     # ─────────────────────────────────────────────
     # 主循环
@@ -226,6 +252,8 @@ class InterviewAgent:
             # 格式化对话历史
             conversation_text = self._format_conversation()
             
+            knowledge_context = self._get_knowledge_context()
+            
             prompt = f"""你是一位艺术表达引导伙伴。请评估以下对话是否已收集足够信息，可以为用户的绘画生成 3 个有意义的图像变体。
 
 【绘画分析摘要】
@@ -234,10 +262,14 @@ class InterviewAgent:
 【已完成的访谈对话】
 {conversation_text}
 
+{knowledge_context}
+
 【判断标准】
 1. 是否已了解用户绘画时的情绪状态？（如：焦虑、平静、兴奋、孤独）
 2. 是否已了解用户对绘画中关键元素的个人联想？（如：雨=压力，伞=保护，人物=自我）
 3. 是否已了解用户希望探索或改变的方向？（如：更温暖、更自由、更有力量）
+
+评估时请遵守【Ethical Guardrails】中的原则：不做诊断，不量化评分，尊重用户的自我理解优先于你的推断。
 
 如果以上 3 条中至少 2 条已有明确信息，回答 "sufficient"。
 如果信息仍不足，回答 "insufficient" 并简要说明还缺什么。
@@ -276,6 +308,8 @@ class InterviewAgent:
             asked_questions = [msg.content for msg in self.conversation_history if msg.role == "agent"]
             asked_summary = "\n".join([f"- {q}" for q in asked_questions[-5:]])  # 最近 5 个问题
             
+            knowledge_context = self._get_knowledge_context()
+            
             prompt = f"""你是一位艺术表达引导伙伴。请根据绘画分析和已有对话，生成下一个最合适的开放式问题。
 
 【绘画分析摘要】
@@ -287,12 +321,16 @@ class InterviewAgent:
 【已问过的问题（避免重复）】
 {asked_summary}
 
+{knowledge_context}
+
 【要求】
 - 问题要简短（不超过 30 字）
 - 一次只问一个问题
 - 不要重复上面已问过的问题
 - 聚焦用户尚未透露的情绪感受或个人联想
 - 语气温和、探索性，不带诊断色彩
+- 遵守【Ethical Guardrails】中的原则：不做诊断，不量化评分，尊重用户的自我理解
+- 若涉及年龄或文化相关特征，请参考【Age Guidelines】或【Cultural Adaptation】避免过度解读
 
 请只输出 JSON，不要任何解释：
 {{"question": "...", "target": "这个问题想探查什么"}}"""
@@ -366,6 +404,8 @@ class InterviewAgent:
             analysis_text = await self._get_analysis_text()
             conversation_text = self._format_conversation()
             
+            knowledge_context = self._get_knowledge_context()
+            
             prompt = f"""你是一位艺术表达引导伙伴。基于以下绘画分析和用户访谈对话，生成 3 个不同方向的图像编辑变体。
 
 【绘画分析摘要】
@@ -373,6 +413,8 @@ class InterviewAgent:
 
 【用户访谈对话】
 {conversation_text}
+
+{knowledge_context}
 
 【要求】
 为用户的绘画生成 3 个不同情感方向的图像变体：
@@ -386,6 +428,11 @@ class InterviewAgent:
 - edit_prompt: 英文图像编辑指令（详细描述如何修改画面）
 - color_prompt: 英文色彩描述
 - hypothesis_id: 关联的猜想 ID
+
+生成时请遵守【Ethical Guardrails】中的原则：
+- 不做诊断，不量化评分
+- 尊重用户的自我理解优先于你的推断
+- 变体描述应使用温和、有画面感的语言，避免病理化术语
 
 请只输出 JSON 数组，不要任何解释：
 [
@@ -462,6 +509,7 @@ class InterviewAgent:
             "turn_count": self.turn_count,
             "state": self.state,
             "conversation": [msg.to_dict() for msg in self.conversation_history],
+            "user_profile": self._user_profile,
         }
     
     @classmethod
@@ -470,6 +518,7 @@ class InterviewAgent:
         agent = cls(session_id)
         agent.turn_count = data.get("turn_count", 0)
         agent.state = data.get("state", "idle")
+        agent._user_profile = data.get("user_profile")
         for msg_data in data.get("conversation", []):
             agent.conversation_history.append(ChatMessage.from_dict(msg_data))
         return agent

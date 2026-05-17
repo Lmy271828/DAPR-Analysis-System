@@ -10,96 +10,22 @@ LLM Prompt 构建函数
 import json
 from typing import Dict, List, Optional
 
+from services.llm.knowledge import get_knowledge_fragments, get_analysis_knowledge, get_interview_knowledge
+
 
 # ───────────────────────────────────────────────
-# 知识片段选择（规则驱动，非向量检索）
+# 知识片段选择（从 dapr_knowledge_base/ 文件加载）
 # ───────────────────────────────────────────────
-
-_AGE_GUIDELINES = {
-    "child_under_7": (
-        "【年龄提示】绘画者年龄较小（7岁以下），视觉运动协调尚在发展中。"
-        "对雨伞等精细元素的缺失不应解读为应对资源缺乏，可能是正常的发展性限制。"
-        "画面简化、人物比例夸张均为该年龄段的正常绘画特征。"
-    ),
-    "child_7_12": (
-        "【年龄提示】绘画者为儿童（7-12岁）。较大的人物形象、较多微笑面孔、"
-        "简化环境均为正常发展现象。不应将微笑解读为防御否认，不应将大人物解读为自恋倾向。"
-    ),
-    "teen": (
-        "【年龄提示】绘画者为青少年。自我概念处于剧烈变化期，"
-        "绘画可能反映理想自我与现实自我的张力。语气应格外温和，避免评判。"
-    ),
-    "adult": (
-        "【年龄提示】绘画者为成年人。若绘画风格简洁或类似儿童画，"
-        "应优先考虑绘画技巧限制，而非心理退化。"
-    ),
-    "senior_60_plus": (
-        "【年龄提示】绘画者为老年用户（60岁以上）。简洁简短的绘画风格、"
-        "较少的笔画数是年龄相关的正常特征，反映运动能力和绘画习惯的变化，"
-        "不应解读为退缩、低自我力量或抑郁。手部线条颤抖可能是生理性手抖。"
-    ),
-}
-
-_CULTURE_GUIDELINES = {
-    "chinese": (
-        "【文化提示】用户来自中国文化背景。雨在农业文化中常象征滋润与生机；"
-        "集体主义文化下多人场景是常态；含蓄表达情绪是文化特色而非压抑；"
-        "有力线条可能受书法训练影响。"
-    ),
-    "japanese": (
-        "【文化提示】用户来自日本文化背景。日本绘画者通常绘制更大身体、"
-        "更多细节、更少微笑的人物，这是文化相关的绘画习惯而非心理指标。"
-    ),
-    "western": (
-        "【文化提示】用户来自西方文化背景。个人主义文化下单独人物是常态；"
-        "直接表达情绪更为常见。"
-    ),
-}
-
-_ETHICAL_GUARDRAIL = (
-    "【效度提醒】雨中人绘画的学术效度存在争议，不能作为诊断工具。"
-    "你的观察只是众多可能视角之一，用户的自我理解永远优先。"
-    "禁止机械套用预定义解释，禁止将发展性特征或文化习惯误读为心理状态。"
-)
-
 
 def select_knowledge_fragments(
     user_profile: Optional[Dict] = None
 ) -> str:
     """根据用户画像选择相关知识片段注入提示。
 
-    当前为规则驱动的轻量级选择，无向量检索。
+    当前从 dapr_knowledge_base/ 文件动态加载，保留原有接口。
     未来若支持多语言/多文化/多年龄段，可升级为 sqlite-vec 轻量检索。
     """
-    fragments = []
-
-    if user_profile:
-        # 年龄相关片段
-        age = user_profile.get("age")
-        if age is not None:
-            if age < 7:
-                fragments.append(_AGE_GUIDELINES["child_under_7"])
-            elif 7 <= age <= 12:
-                fragments.append(_AGE_GUIDELINES["child_7_12"])
-            elif 13 <= age <= 18:
-                fragments.append(_AGE_GUIDELINES["teen"])
-            elif age >= 60:
-                fragments.append(_AGE_GUIDELINES["senior_60_plus"])
-            else:
-                fragments.append(_AGE_GUIDELINES["adult"])
-
-        # 文化相关片段
-        culture = user_profile.get("culture")
-        if culture and culture in _CULTURE_GUIDELINES:
-            fragments.append(_CULTURE_GUIDELINES[culture])
-        elif culture is None:
-            # 默认中国文化背景
-            fragments.append(_CULTURE_GUIDELINES["chinese"])
-
-    # 伦理护栏始终注入
-    fragments.append(_ETHICAL_GUARDRAIL)
-
-    return "\n\n".join(fragments)
+    return get_analysis_knowledge(user_profile=user_profile)
 
 
 # ───────────────────────────────────────────────

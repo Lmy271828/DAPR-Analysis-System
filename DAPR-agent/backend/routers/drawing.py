@@ -281,6 +281,20 @@ async def analyze_drawing_task_stream(session_id: str):
         agent.set_manager(manager)
         agent.set_orchestrator(orchestrator)
         agent.set_analysis_result(analysis_result)  # 注入本地 VLM 文字分析结果
+        
+        # 注入用户画像（年龄、文化背景），用于知识库动态筛选
+        user_profile = {}
+        if session.age_group:
+            # 将 age_group 字符串解析为大致年龄
+            age_map = {
+                "child_under_7": 5, "child_7_9": 8, "child_10_12": 11,
+                "teen_13_15": 14, "teen_16_18": 17,
+                "adult_19_35": 27, "adult_36_59": 47,
+                "senior_60_plus": 65
+            }
+            user_profile["age"] = age_map.get(session.age_group)
+        agent.set_user_profile(user_profile)
+        
         interview_agents[session_id] = agent
         
         # 尝试从持久化状态恢复（页面刷新场景）
