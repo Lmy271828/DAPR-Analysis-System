@@ -503,8 +503,8 @@ pip install -r requirements.txt
 
 | 模型 | 文件名 | 大小 | 放置路径 | 下载地址 |
 |------|--------|------|----------|----------|
-| **扩散模型** (必选) | `flux-2-klein-4b-nvfp4.safetensors` | ~2.5GB | `ComfyUI/models/diffusion_models/` | [Hugging Face](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B/resolve/main/flux-2-klein-4b-nvfp4.safetensors) |
-| **扩散模型** (备选) | `flux-2-klein-4b-fp8.safetensors` | ~3.8GB | `ComfyUI/models/diffusion_models/` | [Hugging Face](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B/resolve/main/flux-2-klein-4b-fp8.safetensors) |
+| **扩散模型** (50系推荐) | `flux-2-klein-4b-nvfp4.safetensors` | ~2.5GB | `ComfyUI/models/diffusion_models/` | [Hugging Face](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B/resolve/main/flux-2-klein-4b-nvfp4.safetensors) |
+| **扩散模型** (非50系) | `flux-2-klein-4b-fp8.safetensors` | ~3.8GB | `ComfyUI/models/diffusion_models/` | [Hugging Face](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B/resolve/main/flux-2-klein-4b-fp8.safetensors) |
 | **Text Encoder** (必选) | `qwen_3_4b_fp4_flux2.safetensors` | ~3.8GB | `ComfyUI/models/text_encoders/` | [Hugging Face](https://huggingface.co/Comfy-Org/vae-text-encoder-for-flux-klein-4b/resolve/main/split_files/text_encoders/qwen_3_4b_fp4_flux2.safetensors) |
 | **Text Encoder** (备选) | `qwen_3_4b.safetensors` | ~7.5GB | `ComfyUI/models/text_encoders/` | [Hugging Face](https://huggingface.co/Comfy-Org/vae-text-encoder-for-flux-klein-4b/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors) |
 | **VAE** (必选) | `flux2-vae.safetensors` | ~336MB | `ComfyUI/models/vae/` | [Hugging Face](https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors) |
@@ -527,6 +527,15 @@ huggingface-cli download Comfy-Org/flux2-dev \
   split_files/vae/flux2-vae.safetensors \
   --local-dir ComfyUI/models/vae
 ```
+
+**非 RTX 50 系显卡注意：**
+NVFP4 格式仅限 RTX 50 系（Blackwell 架构）支持。非 50 系显卡需改用 FP8 扩散模型：
+```bash
+huggingface-cli download black-forest-labs/FLUX.2-klein-4B \
+  flux-2-klein-4b-fp8.safetensors \
+  --local-dir ComfyUI/models/diffusion_models
+```
+FP8 权重比 NVFP4 大约 1.5GB，在 8GB 显存下建议**关闭 `--highvram`**，改用 `--normalvram` 让模型按需加载。
 
 **国内镜像加速：**
 ```bash
@@ -719,7 +728,7 @@ CANVAS_CONFIG = {
 | **内容生成失败** | 确认 MOONSHOT_API_KEY 已正确设置 |
 | **本地VLM加载失败** | 确认 model/ 目录下存在 Qwen3.5 AWQ INT4 权重文件 |
 | **ComfyUI连接失败** | 确认ComfyUI服务已启动（`bash DAPR-agent/scripts/comfyui_start.sh`），检查 `config.py` 中的地址配置 |
-| **显存OOM** | 当前默认配置已为 8GB 显存优化：扩散模型使用 NVFP4 (`flux-2-klein-4b-nvfp4.safetensors`, 2.5GB) + Text Encoder 使用 FP4 (`qwen_3_4b_fp4_flux2.safetensors`, 3.8GB)。如需进一步降低显存，可关闭本地VLM改用云端分析 |
+| **显存OOM** | 当前默认配置已为 8GB 显存优化：扩散模型使用 NVFP4 (`flux-2-klein-4b-nvfp4.safetensors`, 2.5GB) + Text Encoder 使用 FP4 (`qwen_3_4b_fp4_flux2.safetensors`, 3.8GB)。**非 RTX 50 系显卡需改用 FP8 扩散模型 (3.8GB)，比 NVFP4 多占约 1.5GB 显存**。在 8GB 显卡上：① 关闭 `--highvram` 改用 `--normalvram`（模型按需加载，峰值约 6.7GB）；② 或关闭本地 VLM 改用云端分析；③ 或升级 12GB+ 显存 |
 | **密钥未设置** | 确认 `DAPR_ENCRYPTION_KEY` 环境变量已正确设置，否则会话数据无法保存 |
 | **视频录制失败** | 确保使用HTTPS或localhost，检查浏览器权限设置 |
 | **JSON解析失败** | 检查 Qwen3.5 是否按指定 Schema 输出；lm-format-enforcer 约束解码会自动保障合法 JSON |
