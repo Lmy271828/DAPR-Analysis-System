@@ -494,8 +494,16 @@ pip install -r requirements.txt
 #### 步骤4：安装并配置ComfyUI
 
 ```bash
-# 克隆ComfyUI（项目已将其作为子目录包含，也可独立克隆）
+# 方式1：使用项目内已包含的 ComfyUI（推荐）
 cd ComfyUI
+pip install -r requirements.txt
+
+# 方式2：独立克隆（如需单独管理）
+git clone https://github.com/Comfy-Org/ComfyUI.git
+cd ComfyUI
+# 当前测试通过的版本：v0.18.1 之后 commit 2d861fb1
+# 若后续版本出现兼容性问题，可回退到此提交：
+# git checkout 2d861fb1
 pip install -r requirements.txt
 ```
 
