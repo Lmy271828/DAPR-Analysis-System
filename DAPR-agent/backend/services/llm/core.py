@@ -676,13 +676,12 @@ class LocalVLMService:
         canvas_video: str = None,
         user_profile: dict = None
     ) -> Generator[Tuple[str, Optional[Dict]], None, None]:
-        import os
+        """绘画分析流（方案 B：图像与视频解耦，分批推理）
 
-        system_prompt = ""
-        system_prompt_file = Path(__file__).parent.parent.parent / "prompts" / "DAPR_ANALYSIS_PROMPT.txt"
-        if system_prompt_file.exists():
-            with open(system_prompt_file, 'r', encoding='utf-8') as f:
-                system_prompt = f.read()
+        Batch A: 绘画成品 → drawing_features
+        Batch B: webcam + canvas 视频 → expression_observation + process_observation
+        """
+        import os
 
         has_webcam = webcam_video and os.path.exists(webcam_video)
         has_screen = canvas_video and os.path.exists(canvas_video)
@@ -694,45 +693,84 @@ class LocalVLMService:
         if has_screen:
             info = VideoUtils.get_video_info(canvas_video)
             video_info_text.append(VideoUtils._format_video_info(info, "第二个视频（绘画过程）"))
-
         video_info_section = "\n\n【视频信息】\n" + "\n".join(video_info_text) if video_info_text else ""
-        prompt = prompts.build_analysis_prompt(has_webcam, has_screen, video_info_section, user_profile)
 
-        videos = []
-        video_types = []
-        if has_webcam:
-            videos.append(webcam_video)
-            video_types.append("webcam")
-        if has_screen:
-            videos.append(canvas_video)
-            video_types.append("canvas")
-
-        # 加载多模态分析 JSON Schema（约束解码用）
-        analysis_schema = None
+        # ── Batch A: 图像分析（绘画成品）──
+        yield ("【正在分析绘画成品】", None)
+        image_prompt = prompts.build_image_analysis_prompt(user_profile)
+        image_schema = None
         try:
-            from services.llm.schemas import MULTIMODAL_ANALYSIS_SCHEMA
-            analysis_schema = MULTIMODAL_ANALYSIS_SCHEMA
+            from services.llm.schemas import IMAGE_ANALYSIS_SCHEMA
+            image_schema = IMAGE_ANALYSIS_SCHEMA
         except ImportError:
             pass
 
-        full_response = ""
+        image_response = ""
         for chunk in self.generate_stream(
-            prompt=prompt,
+            prompt=image_prompt,
             images=[drawing_path],
-            videos=videos,
-            video_types=video_types,
-            system_prompt=system_prompt,
-            video_max_frames=LOCAL_VLM_CONFIG.get("video_max_frames", 10),
             force_json=True,
-            json_schema=analysis_schema,
+            json_schema=image_schema,
             max_new_tokens=4096,
         ):
-            full_response += chunk
+            image_response += chunk
             yield (chunk, None)
 
-        print(f"[LocalVLM Stream] 分析完成，解析结果...")
-        result = parsers.parse_multimodal_analysis_response(full_response)
-        standardized = parsers.standardize_analysis_result(result)
+        print(f"[LocalVLM Stream] Batch A 完成，解析图像分析结果...")
+        image_result = parsers.parse_image_analysis_response(image_response)
+
+        # ── Batch B: 视频分析（表情 + 绘画过程）──
+        if has_webcam or has_screen:
+            yield ("【正在分析视频】", None)
+            video_prompt = prompts.build_video_analysis_prompt(
+                has_webcam, has_screen, video_info_section, user_profile
+            )
+            videos = []
+            video_types = []
+            if has_webcam:
+                videos.append(webcam_video)
+                video_types.append("webcam")
+            if has_screen:
+                videos.append(canvas_video)
+                video_types.append("canvas")
+
+            video_schema = None
+            try:
+                from services.llm.schemas import VIDEO_ANALYSIS_SCHEMA
+                video_schema = VIDEO_ANALYSIS_SCHEMA
+            except ImportError:
+                pass
+
+            video_response = ""
+            for chunk in self.generate_stream(
+                prompt=video_prompt,
+                videos=videos,
+                video_types=video_types,
+                video_max_frames=LOCAL_VLM_CONFIG.get("video_max_frames", 10),
+                force_json=True,
+                json_schema=video_schema,
+                max_new_tokens=4096,
+            ):
+                video_response += chunk
+                yield (chunk, None)
+
+            print(f"[LocalVLM Stream] Batch B 完成，解析视频分析结果...")
+            video_result = parsers.parse_video_analysis_response(video_response)
+        else:
+            video_result = {"analysis": {"expression_observation": [], "process_observation": []}}
+
+        # ── 合并两批结果 ──
+        merged_analysis = {
+            "drawing_features": image_result.get("analysis", {}).get("drawing_features", []),
+            "expression_observation": video_result.get("analysis", {}).get("expression_observation", []),
+            "process_observation": video_result.get("analysis", {}).get("process_observation", []),
+        }
+        merged_result = {
+            "analysis": merged_analysis,
+            "questions_for_user": [],
+            "psychological_guesstimates": [],
+        }
+        standardized = parsers.standardize_analysis_result(merged_result)
         yield ("", standardized)
 
     # --- 后续问题生成 / 最终报告 已迁移到 KimiService（云端纯文字处理） ---

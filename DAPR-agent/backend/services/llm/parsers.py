@@ -21,14 +21,147 @@ def clean_json_text(response: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════
-# 多模态分析契约（本地 VLM 专用）
+# 图像分析契约（Batch A：绘画成品）
+# ═══════════════════════════════════════════════════════════════
+
+def validate_image_analysis_contract(payload: Dict[str, Any]) -> Tuple[bool, str]:
+    """校验图像分析输出契约"""
+    if not isinstance(payload, dict):
+        return False, "payload不是对象"
+    if "drawing_features" not in payload:
+        return False, "缺少字段: drawing_features"
+    if not isinstance(payload["drawing_features"], list):
+        return False, "drawing_features必须是数组"
+    if not all(isinstance(x, str) for x in payload["drawing_features"]):
+        return False, "drawing_features必须是字符串数组"
+    return True, ""
+
+
+def normalize_image_analysis_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """将图像分析结果转换为内部兼容格式"""
+    if not isinstance(payload, dict):
+        return {"raw_response": str(payload)}
+    return {
+        "analysis": {"drawing_features": payload.get("drawing_features", [])},
+        "questions_for_user": [],
+        "psychological_guesstimates": []
+    }
+
+
+def parse_image_analysis_response(response: str) -> Dict[str, Any]:
+    """解析图像分析响应（Batch A）"""
+    current_text = response or ""
+    cleaned = clean_json_text(current_text)
+    print(f"[LLM-Image] 清理后响应 ({len(cleaned)} 字符):")
+    print(cleaned[:300])
+
+    try:
+        parsed = json.loads(cleaned)
+        valid, err = validate_image_analysis_contract(parsed)
+        if valid:
+            print(f"[LLM-Image] 契约校验通过")
+            return normalize_image_analysis_payload(parsed)
+        print(f"[LLM-Image] 契约校验失败: {err}")
+    except json.JSONDecodeError as e:
+        print(f"[LLM-Image] JSON解析失败: {e}")
+    except Exception as e:
+        print(f"[LLM-Image] 解析异常: {e}")
+
+    try:
+        json_match = re.search(r'\{[\s\S]*\}', current_text or "")
+        if json_match:
+            parsed = json.loads(json_match.group())
+            valid, err = validate_image_analysis_contract(parsed)
+            if valid:
+                print(f"[LLM-Image] 备用解析成功")
+                return normalize_image_analysis_payload(parsed)
+    except Exception as e2:
+        print(f"[LLM-Image] 备用解析也失败: {e2}")
+
+    print(f"[LLM-Image] 最终解析失败，返回兜底")
+    return normalize_image_analysis_payload({
+        "drawing_features": ["模型未返回可解析的绘画分析结果"]
+    })
+
+
+# ═══════════════════════════════════════════════════════════════
+# 视频分析契约（Batch B：webcam + canvas）
+# ═══════════════════════════════════════════════════════════════
+
+def validate_video_analysis_contract(payload: Dict[str, Any]) -> Tuple[bool, str]:
+    """校验视频分析输出契约"""
+    if not isinstance(payload, dict):
+        return False, "payload不是对象"
+    for field in ["expression_observation", "process_observation"]:
+        if field not in payload:
+            return False, f"缺少字段: {field}"
+        value = payload[field]
+        if not isinstance(value, list):
+            return False, f"{field}必须是数组"
+        if not all(isinstance(x, str) for x in value):
+            return False, f"{field}必须是字符串数组"
+    return True, ""
+
+
+def normalize_video_analysis_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """将视频分析结果转换为内部兼容格式"""
+    if not isinstance(payload, dict):
+        return {"raw_response": str(payload)}
+    return {
+        "analysis": {
+            "expression_observation": payload.get("expression_observation", []),
+            "process_observation": payload.get("process_observation", [])
+        },
+        "questions_for_user": [],
+        "psychological_guesstimates": []
+    }
+
+
+def parse_video_analysis_response(response: str) -> Dict[str, Any]:
+    """解析视频分析响应（Batch B）"""
+    current_text = response or ""
+    cleaned = clean_json_text(current_text)
+    print(f"[LLM-Video] 清理后响应 ({len(cleaned)} 字符):")
+    print(cleaned[:300])
+
+    try:
+        parsed = json.loads(cleaned)
+        valid, err = validate_video_analysis_contract(parsed)
+        if valid:
+            print(f"[LLM-Video] 契约校验通过")
+            return normalize_video_analysis_payload(parsed)
+        print(f"[LLM-Video] 契约校验失败: {err}")
+    except json.JSONDecodeError as e:
+        print(f"[LLM-Video] JSON解析失败: {e}")
+    except Exception as e:
+        print(f"[LLM-Video] 解析异常: {e}")
+
+    try:
+        json_match = re.search(r'\{[\s\S]*\}', current_text or "")
+        if json_match:
+            parsed = json.loads(json_match.group())
+            valid, err = validate_video_analysis_contract(parsed)
+            if valid:
+                print(f"[LLM-Video] 备用解析成功")
+                return normalize_video_analysis_payload(parsed)
+    except Exception as e2:
+        print(f"[LLM-Video] 备用解析也失败: {e2}")
+
+    print(f"[LLM-Video] 最终解析失败，返回兜底")
+    return normalize_video_analysis_payload({
+        "expression_observation": ["模型未返回可解析的表情分析结果"],
+        "process_observation": ["模型未返回可解析的过程分析结果"]
+    })
+
+
+# ═══════════════════════════════════════════════════════════════
+# 兼容旧接口：多模态分析解析（保留）
 # ═══════════════════════════════════════════════════════════════
 
 def validate_multimodal_analysis_contract(payload: Dict[str, Any]) -> Tuple[bool, str]:
     """校验多模态分析输出契约 —— 直接校验裸 analysis 对象（字符串数组格式）"""
     if not isinstance(payload, dict):
         return False, "payload不是对象"
-
     for field in ["drawing_features", "expression_observation", "process_observation"]:
         if field not in payload:
             return False, f"缺少字段: {field}"
@@ -44,19 +177,16 @@ def normalize_multimodal_analysis_payload(payload: Dict[str, Any]) -> Dict[str, 
     """将多模态分析结果统一转换为内部兼容格式"""
     if not isinstance(payload, dict):
         return {"raw_response": str(payload)}
-
-    # 裸 analysis 对象直接包装为内部格式
     return {
         "analysis": payload,
-        "questions_for_user": [],      # 本地 VLM 不生成问题
-        "psychological_guesstimates": []  # 本地 VLM 不生成猜想
+        "questions_for_user": [],
+        "psychological_guesstimates": []
     }
 
 
 def parse_multimodal_analysis_response(response: str) -> Dict[str, Any]:
     """解析多模态分析响应：清理 + 解析 + 基本兜底"""
     current_text = response or ""
-
     cleaned = clean_json_text(current_text)
     print(f"[LLM-Multimodal] 清理后响应 ({len(cleaned)} 字符):")
     print(cleaned[:300])
@@ -73,7 +203,6 @@ def parse_multimodal_analysis_response(response: str) -> Dict[str, Any]:
     except Exception as e:
         print(f"[LLM-Multimodal] 解析异常: {e}")
 
-    # 备用提取
     try:
         json_match = re.search(r'\{[\s\S]*\}', current_text or "")
         if json_match:

@@ -7,7 +7,7 @@ LLM Prompt 模块
 
 保持向后兼容：从本模块导入的接口仍然可用。
 """
-from services.llm.prompts.multimodal import build_analysis_prompt
+from services.llm.prompts.multimodal import build_image_analysis_prompt, build_video_analysis_prompt
 from services.llm.prompts.cloud import (
     build_edit_instructions_prompt,
     build_follow_up_questions_prompt,
@@ -16,7 +16,8 @@ from services.llm.prompts.cloud import (
 )
 
 __all__ = [
-    "build_analysis_prompt",
+    "build_image_analysis_prompt",
+    "build_video_analysis_prompt",
     "build_edit_instructions_prompt",
     "build_follow_up_questions_prompt",
     "build_final_report_prompt",

@@ -16,8 +16,41 @@ JSON Schema 定义 —— 用于 lm-format-enforcer 约束解码
 # ═══════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════
-# 多模态分析 Schema（本地 VLM 专用）
-# 仅包含 analysis 对象，不包含 questions/hypotheses
+# 图像分析 Schema（Batch A：绘画成品）
+# ═══════════════════════════════════════════════════════════════
+
+IMAGE_ANALYSIS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "drawing_features": {
+            "type": "array",
+            "items": {"type": "string"}
+        }
+    },
+    "required": ["drawing_features"]
+}
+
+# ═══════════════════════════════════════════════════════════════
+# 视频分析 Schema（Batch B：webcam + canvas）
+# ═══════════════════════════════════════════════════════════════
+
+VIDEO_ANALYSIS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "expression_observation": {
+            "type": "array",
+            "items": {"type": "string"}
+        },
+        "process_observation": {
+            "type": "array",
+            "items": {"type": "string"}
+        }
+    },
+    "required": ["expression_observation", "process_observation"]
+}
+
+# ═══════════════════════════════════════════════════════════════
+# 兼容旧接口：多模态分析 Schema（全部字段）
 # ═══════════════════════════════════════════════════════════════
 
 MULTIMODAL_ANALYSIS_SCHEMA = {
