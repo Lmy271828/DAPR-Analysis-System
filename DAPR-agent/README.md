@@ -18,6 +18,34 @@
   pip install -r requirements.txt
   ```
 
+#### 可选：安装 Flash Attention 2（性能优化）
+
+Flash Attention 2 可加速 Transformer 注意力计算并降低峰值显存。系统在无 Flash Attention 时会自动回退到 PyTorch SDPA（`scaled_dot_product_attention`），功能正常但速度略慢。
+
+**方式一：预编译 Wheel（推荐，无需编译）**
+
+官方 Release 提供部分 CUDA/PyTorch/Python 组合的预编译 wheel：
+```bash
+# 示例：CUDA 12.x + PyTorch 2.9 + Python 3.12
+pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
+```
+
+> 若 GitHub 下载慢，可用代理：
+> ```bash
+> pip install https://mirror.ghproxy.com/https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
+> ```
+
+可用组合请查看 [官方 Releases](https://github.com/Dao-AILab/flash-attention/releases)，文件名格式为 `flash_attn-{version}+cu{CUDA}torch{PyTorch}cxx11abi{TRUE|FALSE}-cp{py}-cp{py}-linux_x86_64.whl`。
+
+**方式二：源码编译（如果无匹配预编译包）**
+
+```bash
+# 需要 nvcc 和 ninja
+pip install packaging ninja
+pip install flash-attn --no-build-isolation
+# 编译约需 15-30 分钟
+```
+
 
 ### 前置准备
 
