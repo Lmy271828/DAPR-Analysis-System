@@ -42,10 +42,17 @@ import {
 // 绑定事件
 function bindEvents() {
     // 知情同意弹窗
-    elements['consent-checkbox'].addEventListener('change', (e) => {
-        elements['consent-btn'].disabled = !e.target.checked;
+    const cb = elements['consent-checkbox'];
+    const btn = elements['consent-btn'];
+    if (!cb || !btn) {
+        console.error('[BindEvents] consent-checkbox 或 consent-btn 元素未找到', { cb, btn });
+        return;
+    }
+    cb.addEventListener('change', (e) => {
+        console.log('[Consent] checkbox changed:', e.target.checked);
+        btn.disabled = !e.target.checked;
     });
-    elements['consent-btn'].addEventListener('click', async () => {
+    btn.addEventListener('click', async () => {
         const ageGroup = elements['age-group-select']?.value || '';
         try {
             await fetch(`/api/session/${state.sessionId}/consent`, {

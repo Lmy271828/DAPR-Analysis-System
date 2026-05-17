@@ -7,7 +7,7 @@ import { elements } from '../config.js';
 // 初始化DOM元素引用
 export function initElements() {
     const ids = [
-        'consent-modal', 'consent-checkbox', 'consent-btn',
+        'consent-modal', 'consent-checkbox', 'consent-btn', 'age-group-select',
         'guidance-page', 'permission-page', 'drawing-page', 'analyzing-page',
         'questioning-page', 'generating-page', 'selecting-page', 'image-preview-page', 'final-question-page', 
         'final-report-page', 'result-page',
