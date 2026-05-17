@@ -675,6 +675,12 @@ class LocalVLMService:
         thread.join()
         print(f"[LocalVLM Stream] Completed: {len(generated_text)} chars")
 
+        # 显存回收：释放输入张量和流式生成中的中间激活
+        del inputs, streamer, generation_kwargs
+        if force_json and json_schema and _LM_FORMAT_ENFORCER_AVAILABLE:
+            del parser, prefix_fn
+        torch.cuda.empty_cache()
+
     def analyze_drawing_stream(
         self,
         drawing_path: str,
@@ -724,6 +730,12 @@ class LocalVLMService:
 
         print(f"[LocalVLM Stream] Batch A 完成，解析图像分析结果...")
         image_result = parsers.parse_image_analysis_response(image_response)
+
+        # 显存清理：Batch A 的图像像素张量不再需要，释放给 Batch B 视频分析
+        del image_response
+        torch.cuda.empty_cache()
+        freed_mb = torch.cuda.memory_allocated() / 1024 / 1024
+        print(f"[LocalVLM Stream] Batch A → Batch B 显存清理完成，当前常驻: {freed_mb:.2f} MB")
 
         # ── Batch B: 视频分析（表情 + 绘画过程）──
         if has_webcam or has_screen:
