@@ -52,7 +52,6 @@ Thumbs.db
 *.mov
 
 # PPT与临时脚本
-*.pptx
 generate_ppt.py
 
 # 本地数据与输出
