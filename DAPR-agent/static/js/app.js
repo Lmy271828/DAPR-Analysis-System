@@ -39,8 +39,20 @@ import {
     createSession();
 });
 
+// 安全绑定事件辅助函数
+function safeAddEventListener(elementName, event, handler) {
+    const el = elements[elementName];
+    if (el) {
+        el.addEventListener(event, handler);
+    } else {
+        console.warn(`[BindEvents] 元素 '${elementName}' 未找到，跳过事件绑定`);
+    }
+}
+
 // 绑定事件
 function bindEvents() {
+    console.log('[App] bindEvents 开始执行');
+
     // 知情同意弹窗
     const cb = elements['consent-checkbox'];
     const btn = elements['consent-btn'];
@@ -70,45 +82,55 @@ function bindEvents() {
     });
 
     // 引导页
-    elements['start-btn'].addEventListener('click', () => showPage('permission-page'));
+    safeAddEventListener('start-btn', 'click', () => showPage('permission-page'));
     
     // 权限页
-    elements['request-camera-btn'].addEventListener('click', requestCameraPermission);
-    elements['request-screen-btn'].addEventListener('click', requestScreenPermission);
-    elements['enter-drawing-btn'].addEventListener('click', () => showPage('drawing-page'));
+    safeAddEventListener('request-camera-btn', 'click', requestCameraPermission);
+    safeAddEventListener('request-screen-btn', 'click', requestScreenPermission);
+    safeAddEventListener('enter-drawing-btn', 'click', () => {
+        showPage('drawing-page');
+        // 延迟初始化画布，确保 DOM 已渲染
+        setTimeout(() => {
+            import('./pages/drawing.js').then(m => {
+                if (m.initCanvas) m.initCanvas();
+            });
+        }, 100);
+    });
     
     // 绘画页
-    elements['start-recording-btn'].addEventListener('click', startRecording);
-    elements['submit-drawing-btn'].addEventListener('click', submitDrawing);
+    safeAddEventListener('start-recording-btn', 'click', startRecording);
+    safeAddEventListener('submit-drawing-btn', 'click', submitDrawing);
     
     // 工具栏
-    elements['rotate-btn'].addEventListener('click', rotateCanvas);
-    elements['pen-btn'].addEventListener('click', () => setTool('pen'));
-    elements['eraser-btn'].addEventListener('click', () => setTool('eraser'));
-    elements['clear-btn'].addEventListener('click', clearCanvas);
-    elements['brush-size'].addEventListener('input', (e) => {
+    safeAddEventListener('rotate-btn', 'click', rotateCanvas);
+    safeAddEventListener('pen-btn', 'click', () => setTool('pen'));
+    safeAddEventListener('eraser-btn', 'click', () => setTool('eraser'));
+    safeAddEventListener('clear-btn', 'click', clearCanvas);
+    safeAddEventListener('brush-size', 'input', (e) => {
         state.brushSize = parseInt(e.target.value);
     });
     
     // 问答页（自主访谈聊天）
-    elements['chat-send-btn'].addEventListener('click', submitChatAnswer);
-    elements['chat-input'].addEventListener('keypress', (e) => {
+    safeAddEventListener('chat-send-btn', 'click', submitChatAnswer);
+    safeAddEventListener('chat-input', 'keypress', (e) => {
         if (e.key === 'Enter') submitChatAnswer();
     });
-    elements['skip-interview-btn'].addEventListener('click', skipInterview);
+    safeAddEventListener('skip-interview-btn', 'click', skipInterview);
     
     // 选择页
-    elements['cancel-preview-btn'].addEventListener('click', cancelPreview);
-    elements['confirm-preview-btn'].addEventListener('click', confirmSelection);
+    safeAddEventListener('cancel-preview-btn', 'click', cancelPreview);
+    safeAddEventListener('confirm-preview-btn', 'click', confirmSelection);
     
     // 最终问题页
-    elements['submit-final-btn'].addEventListener('click', submitFinalAnswers);
+    safeAddEventListener('submit-final-btn', 'click', submitFinalAnswers);
     
     // 结果页：重新开始时清除会话存储，避免恢复到已完成的旧会话
-    elements['restart-btn'].addEventListener('click', () => {
+    safeAddEventListener('restart-btn', 'click', () => {
         sessionStorage.removeItem('dapr_session_id');
         location.reload();
     });
+
+    console.log('[App] bindEvents 执行完成');
 }
 
 // 创建会话（支持浏览器刷新后恢复）

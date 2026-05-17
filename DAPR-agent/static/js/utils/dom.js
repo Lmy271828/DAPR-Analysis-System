@@ -33,6 +33,12 @@ export function initElements() {
 
 // 显示页面
 export function showPage(pageId) {
+    const targetPage = elements[pageId];
+    if (!targetPage) {
+        console.error(`[showPage] 页面 '${pageId}' 未找到`);
+        return;
+    }
+
     // 如果离开预览页面，清空图像防止在其他页面显示
     const currentPreview = document.getElementById('image-preview-page');
     if (currentPreview && currentPreview.classList.contains('active') && pageId !== 'image-preview-page') {
@@ -45,5 +51,5 @@ export function showPage(pageId) {
     document.querySelectorAll('.page').forEach(page => {
         page.classList.remove('active');
     });
-    elements[pageId].classList.add('active');
+    targetPage.classList.add('active');
 }
