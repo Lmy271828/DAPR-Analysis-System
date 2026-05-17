@@ -3,6 +3,7 @@
  */
 
 import { elements } from '../config.js';
+export { elements };
 
 // 初始化DOM元素引用
 export function initElements() {
