@@ -18,9 +18,29 @@
   pip install -r requirements.txt
   ```
 
-#### 可选：安装 Flash Attention 2（性能优化）
+#### 可选：性能优化依赖
 
-Flash Attention 2 可加速 Transformer 注意力计算并降低峰值显存。系统在无 Flash Attention 时会自动回退到 PyTorch SDPA（`scaled_dot_product_attention`），功能正常但速度略慢。
+##### 1. flash-linear-attention（Qwen3.5 必需）
+
+Qwen3.5 采用**混合架构**（标准 Transformer + Linear Attention），`flash-linear-attention` 为其线性注意力层提供 CUDA 内核加速。若未安装，线性注意力层会 fallback 到纯 PyTorch 实现，推理速度显著下降。
+
+```bash
+# PyPI 纯 Python wheel（Triton JIT 编译，无需预编译平台包）
+pip install "flash-linear-attention>=0.4.2"
+
+# 或从最新源码安装
+pip install -U git+https://github.com/fla-org/flash-linear-attention --no-build-isolation
+```
+
+验证安装：
+```python
+import fla
+print(fla.__version__)  # 应输出版本号，如 0.5.0
+```
+
+##### 2. Flash Attention 2（标准注意力层加速）
+
+Flash Attention 2 为 Qwen3.5 的**标准 Softmax 注意力层**提供加速并降低峰值显存。系统在无 Flash Attention 时会自动回退到 PyTorch SDPA（`scaled_dot_product_attention`），功能正常但速度略慢。
 
 **方式一：预编译 Wheel（推荐，无需编译）**
 
