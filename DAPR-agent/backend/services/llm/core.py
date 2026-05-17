@@ -243,9 +243,10 @@ class KimiService:
         self,
         selected_image: Dict,
         hypotheses: List[Dict],
-        conversation_history: List[Dict] = None
+        conversation_history: List[Dict] = None,
+        selection_behavior: Dict = None
     ) -> List[str]:
-        """基于图像选择和访谈对话历史生成深入问题（DAPR深度访谈阶段）"""
+        """基于图像选择、选择行为数据和访谈对话历史生成深入问题（DAPR深度访谈阶段）"""
 
         # 格式化访谈对话历史
         if conversation_history:
@@ -256,7 +257,29 @@ class KimiService:
         else:
             conversation_text = "（无访谈对话记录）"
 
-        prompt = prompts.build_follow_up_questions_prompt(selected_image, conversation_text, hypotheses)
+        # 格式化选择行为数据
+        selection_text = ""
+        if selection_behavior:
+            sel = selection_behavior
+            view_order = sel.get('viewOrder', [])
+            final = sel.get('finalSelection', {})
+            hesitations = sel.get('hesitationIndicators', [])
+            durations = sel.get('viewDurations', {})
+            
+            selection_text = f"""【实际选择行为数据】
+- 图像查看顺序: {view_order}
+- 最终选择是第 {final.get('viewOrder', 'N/A')} 个查看的图像（共查看 {final.get('totalViews', 'N/A')} 张）
+- 各图像停留时长(ms): {durations}
+- 犹豫指标 ({len(hesitations)} 个):
+"""
+            for h in hesitations:
+                selection_text += f"  • [{h.get('type', '')}] {h.get('description', '')}\n"
+        else:
+            selection_text = "（无选择行为数据）"
+
+        prompt = prompts.build_follow_up_questions_prompt(
+            selected_image, conversation_text, hypotheses, selection_text
+        )
 
         response = self.generate(prompt=prompt, force_json=True)
 

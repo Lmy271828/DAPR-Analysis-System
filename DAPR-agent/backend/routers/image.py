@@ -207,11 +207,12 @@ async def final_analysis_task(session_id: str):
     
     print(f"[Final Analysis] 用户选择图像: {selected_image.get('name', 'unknown')}")
     
-    # 根据选择和访谈对话历史生成深入问题（纯文字，无图像上传）
+    # 根据选择、选择行为数据和访谈对话历史生成深入问题（纯文字，无图像上传）
     follow_up_questions = llm.generate_follow_up_questions(
         selected_image=selected_image,
         hypotheses=session.hypotheses,
-        conversation_history=session.conversation_history
+        conversation_history=session.conversation_history,
+        selection_behavior=session.selection_behavior
     )
     
     # 保存待问的问题
