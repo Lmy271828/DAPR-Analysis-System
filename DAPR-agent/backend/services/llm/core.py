@@ -684,13 +684,6 @@ class LocalVLMService:
             with open(system_prompt_file, 'r', encoding='utf-8') as f:
                 system_prompt = f.read()
 
-        # 加载分析参考文档（观察维度速查）
-        reference_file = Path(__file__).parent.parent.parent / "prompts" / "DAPR_ANALYSIS_REFERENCE.md"
-        if reference_file.exists():
-            with open(reference_file, 'r', encoding='utf-8') as f:
-                reference = f.read()
-            system_prompt = system_prompt + "\n\n" + reference
-
         has_webcam = webcam_video and os.path.exists(webcam_video)
         has_screen = canvas_video and os.path.exists(canvas_video)
 
