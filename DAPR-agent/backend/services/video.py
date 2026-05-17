@@ -14,11 +14,59 @@ class VideoUtils:
     """视频工具类 - 基于 ffmpeg/ffprobe"""
 
     @staticmethod
+    def _get_duration_from_packets(video_path: str) -> float:
+        """从视频流最后一帧的 pts 时间戳读取真实时长。
+        
+        适用于 MediaRecorder 等不写入 duration 元数据的 WebM 文件。
+        原理：扫描所有 packet 的 pts_time，最后一帧的 pts 即为总时长。
+        """
+        try:
+            cmd = [
+                'ffprobe', '-v', 'error',
+                '-select_streams', 'v:0',
+                '-show_entries', 'packet=pts_time',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                video_path
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0 and result.stdout.strip():
+                lines = [l.strip() for l in result.stdout.strip().split('\n') if l.strip()]
+                if lines:
+                    last_pts = float(lines[-1])
+                    return last_pts if last_pts > 0 else 0
+        except Exception as e:
+            print(f"[VideoUtils] 读取 packet pts 失败: {e}")
+        return 0
+
+    @staticmethod
+    def _count_packets(video_path: str) -> int:
+        """计数视频 packet 数量（不解码，速度快）。"""
+        try:
+            cmd = [
+                'ffprobe', '-v', 'error',
+                '-count_packets',
+                '-select_streams', 'v:0',
+                '-show_entries', 'stream=nb_read_packets',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                video_path
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0 and result.stdout.strip():
+                return int(result.stdout.strip())
+        except Exception as e:
+            print(f"[VideoUtils] 计数 packet 失败: {e}")
+        return 0
+
+    @staticmethod
     def get_video_info(video_path: str) -> Dict:
         """
-        获取视频信息（时长、帧率、分辨率）
-        统一使用 ffprobe 从 format 读 duration，从 stream 读 fps/分辨率
-        不再用帧数反推时长（避免 VFR/硬编码 fps 导致的误差）
+        获取视频信息（时长、帧率、分辨率）。
+        
+        策略：
+        1. 先尝试从 format/stream 读取标准元数据（适用于正常视频）
+        2. 如果 duration 缺失（如 MediaRecorder WebM），从 packet pts 读取真实时长
+        3. fps 自适应：packet_count / duration（避免被 WebM 的 1000/1 timebase 误导）
+        
         返回: {"duration": float, "fps": float, "total_frames": int, "width": int, "height": int}
         """
         if not os.path.exists(video_path):
@@ -28,49 +76,68 @@ class VideoUtils:
         file_size = os.path.getsize(video_path)
         print(f"[VideoUtils] 视频文件: {video_path} ({file_size / 1024 / 1024:.2f} MB)")
 
-        # 统一方法: 从 format 读取 duration，从 stream 读取 fps/分辨率
+        # 步骤1: 读取分辨率（stream 层面通常可靠）
+        width, height = 640, 480
+        try:
+            cmd = [
+                'ffprobe', '-v', 'error',
+                '-select_streams', 'v:0',
+                '-show_entries', 'stream=width,height',
+                '-of', 'json', video_path
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                data = json.loads(result.stdout)
+                stream = data.get('streams', [{}])[0]
+                width = int(stream.get('width', 640))
+                height = int(stream.get('height', 480))
+        except Exception as e:
+            print(f"[VideoUtils] 读取分辨率失败: {e}")
+
+        # 步骤2: 尝试标准 format duration
+        duration = 0
         try:
             cmd = [
                 'ffprobe', '-v', 'error',
                 '-show_entries', 'format=duration',
-                '-show_entries', 'stream=r_frame_rate,width,height',
-                '-of', 'json', video_path
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                video_path
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0 and result.stdout.strip():
+                duration_str = result.stdout.strip()
+                if duration_str.upper() != 'N/A':
+                    duration = float(duration_str)
+        except Exception:
+            pass
 
-            if result.returncode == 0:
-                data = json.loads(result.stdout)
-                format_info = data.get('format', {})
-                stream = data.get('streams', [{}])[0]
+        # 步骤3: 如果 format duration 缺失（MediaRecorder WebM），从 packet pts 读取
+        if duration <= 0:
+            duration = VideoUtils._get_duration_from_packets(video_path)
+            if duration > 0:
+                print(f"[VideoUtils] 从 packet pts 读取时长: {duration:.1f}s")
 
-                duration = float(format_info.get('duration', 0))
+        # 步骤4: 自适应 fps（避免被 WebM 的 1000/1 timebase 误导）
+        fps = 0
+        if duration > 0:
+            packet_count = VideoUtils._count_packets(video_path)
+            if packet_count > 0:
+                fps = packet_count / duration
+                print(f"[VideoUtils] 自适应 fps: {packet_count} packets / {duration:.1f}s = {fps:.2f}")
 
-                fps_str = stream.get('r_frame_rate', '0/1')
-                if '/' in fps_str:
-                    num, den = fps_str.split('/')
-                    fps = float(num) / float(den) if float(den) != 0 else 0
-                else:
-                    fps = float(fps_str)
+        if duration > 0 and fps > 0:
+            total_frames = int(duration * fps)
+            print(f"[VideoUtils] 最终: 时长={duration:.1f}s, fps={fps:.2f}, 帧数={total_frames}, 分辨率={width}x{height}")
+            return {
+                "duration": duration,
+                "fps": fps,
+                "total_frames": total_frames,
+                "width": width,
+                "height": height
+            }
 
-                width = int(stream.get('width', 0))
-                height = int(stream.get('height', 0))
-
-                if duration > 0 and fps > 0:
-                    total_frames = int(duration * fps)
-                    print(f"[VideoUtils] format duration={duration:.1f}s, fps={fps:.1f}, 分辨率={width}x{height}")
-                    return {
-                        "duration": duration,
-                        "fps": fps,
-                        "total_frames": total_frames,
-                        "width": width if width > 0 else 640,
-                        "height": height if height > 0 else 480
-                    }
-        except Exception as e:
-            print(f"[VideoUtils] ffprobe 读取失败: {e}")
-
-        # ffprobe 无法读取，返回空值让调用方处理
         print(f"[VideoUtils] 无法获取视频信息，返回空值")
-        return {"duration": 0, "fps": 0, "total_frames": 0, "width": 0, "height": 0}
+        return {"duration": 0, "fps": 0, "total_frames": 0, "width": width, "height": height}
 
     @staticmethod
     def _format_video_info(info: Dict, video_name: str) -> str:
