@@ -67,3 +67,6 @@ test*.jpg
 test*.png
 run_comfyui_e2e.sh
 DAPR-agent/test_image_service.py
+node_modules/
+package-lock.json
+package.json

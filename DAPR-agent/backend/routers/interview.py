@@ -6,7 +6,7 @@ from config import SESSIONS_DIR
 from models import Session
 from schemas import ChatAnswerRequest
 from agent.interview_agent import InterviewAgent
-from main import manager, orchestrator, interview_agents
+from dependencies import manager, orchestrator, interview_agents
 
 router = APIRouter(prefix="/api/session")
 

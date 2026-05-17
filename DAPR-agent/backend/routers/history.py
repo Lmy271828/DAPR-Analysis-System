@@ -9,7 +9,7 @@ from config import SESSIONS_DIR
 from models import Session, SessionStatus
 from schemas import HistoryAnalyzeRequest
 from agent.plan import plan_after_drawing
-from main import orchestrator
+from dependencies import orchestrator
 
 router = APIRouter(prefix="/api/history")
 

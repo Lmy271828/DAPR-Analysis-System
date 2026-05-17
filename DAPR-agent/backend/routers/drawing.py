@@ -12,7 +12,7 @@ from schemas import DrawingRequest
 from image_service import get_image_service
 from agent.plan import plan_after_drawing
 from agent.interview_agent import InterviewAgent
-from main import manager, orchestrator, interview_agents
+from dependencies import manager, orchestrator, interview_agents
 
 router = APIRouter(prefix="/api/session")
 

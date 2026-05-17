@@ -144,6 +144,9 @@ class KimiService:
             )
             output_text = response.choices[0].message.content
             print(f"[LLM] 生成完成，输出长度: {len(output_text)}")
+        except APITimeoutError as e:
+            print(f"[LLM] 请求超时: {e}")
+            raise
         except APIError as e:
             # Moonshot 旧版/部分模型不支持 json_schema，自动降级为 json_object
             status_code = getattr(e, "status_code", None) or getattr(e, "http_status", None)
@@ -166,9 +169,6 @@ class KimiService:
             else:
                 print(f"[LLM] API 错误: {e}")
                 raise
-        except APITimeoutError as e:
-            print(f"[LLM] 请求超时: {e}")
-            raise
         except Exception as e:
             print(f"[LLM] 请求失败: {e}")
             raise

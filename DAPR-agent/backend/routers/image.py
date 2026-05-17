@@ -10,7 +10,7 @@ from schemas import SelectImageRequest, FinalAnswerRequest
 from llm_service import create_llm_service
 from image_service import get_image_service
 from agent.plan import plan_after_selection, plan_after_final_answers
-from main import manager, orchestrator, log_to_therapist
+from dependencies import manager, orchestrator, log_to_therapist
 
 router = APIRouter(prefix="/api/session")
 file_router = APIRouter()

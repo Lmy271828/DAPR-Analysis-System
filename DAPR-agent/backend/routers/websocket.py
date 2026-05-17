@@ -4,7 +4,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from config import SESSIONS_DIR
 from models import Session
-from main import manager
+from dependencies import manager
 
 router = APIRouter()
 
