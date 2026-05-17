@@ -58,6 +58,7 @@ function bindEvents() {
         }
         elements['consent-modal'].classList.remove('active');
         showPage('guidance-page');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         sessionStorage.setItem('dapr_consent_given', 'true');
     });
 
