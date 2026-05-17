@@ -481,8 +481,8 @@ cd DAPR-Analysis-System/DAPR-agent
 #### 步骤2：创建Python虚拟环境
 
 ```bash
-conda create -n dapr-agent python=3.12
-conda activate dapr-agent
+conda create -n py312 python=3.12
+conda activate py312
 ```
 
 #### 步骤3：安装依赖
