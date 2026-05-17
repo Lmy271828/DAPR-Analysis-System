@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-**DAPR-Analysis-System** 是一个基于 "Draw-A-Person-in-the-Rain (DAPR)" 绘画活动的 AI 情绪探索与艺术表达系统。该系统结合了人工智能技术（Kimi-K2.5 LLM 和 FLUX.2 图像生成）与表达性艺术媒介，为用户提供沉浸式的情绪觉察与创意图像生成体验。
+**DAPR-Analysis-System** 是一个基于 "Draw-A-Person-in-the-Rain (DAPR)" 绘画活动的 AI 情绪探索与艺术表达系统。该系统采用双模型安全架构（本地 Qwen3.5 VLM + 云端 Kimi-K2.5 LLM），结合多模态情感分析（绘画+面部表情视频+绘画过程视频）与情感条件图像生成（FLUX.2），为用户提供沉浸式的情绪觉察与创意艺术表达体验。
 
 > ⚠️ **重要声明**：本系统仅为艺术创作与情绪探索工具，不提供任何医学诊断、心理治疗或精神健康评估。如有心理健康需求，请咨询专业持证心理咨询师或精神科医生。
 
@@ -28,17 +28,20 @@
 │                    │   WebSocket   │                                   │
 │                    └───────┬───────┘                                   │
 │                            │                                           │
-│         ┌──────────────────┼──────────────────┐                       │
-│         │                  │                  │                       │
-│    ┌────┴────┐      ┌─────┴─────┐     ┌─────┴─────┐                  │
-│    │  LLM    │      │  Image    │     │  Session  │                  │
-│    │ Service │      │  Service  │     │  Manager  │                  │
-│    └────┬────┘      └─────┬─────┘     └─────┬─────┘                  │
-│         │                 │                 │                         │
-│    ┌────┴────┐      ┌─────┴─────┐     ┌─────┴─────┐                  │
-│    │Kimi-K2.5│      │  ComfyUI  │     │  Local    │                  │
-│    │  API    │      │  FLUX.2   │     │ Storage   │                  │
-│    └─────────┘      └───────────┘     └───────────┘                  │
+│    ┌───────────────────────┼───────────────────────┐                   │
+│    │                       │                       │                   │
+│    ▼                       ▼                       ▼                   │
+│ ┌─────────┐          ┌─────────┐           ┌─────────────┐            │
+│ │ 本地VLM │          │ 云端LLM │           │  Image      │            │
+│ │ Qwen3.5 │          │Kimi-K2.5│           │  Service    │            │
+│ │ AWQ INT4│          │  API    │           │             │            │
+│ └────┬────┘          └────┬────┘           └──────┬──────┘            │
+│      │                    │                       │                   │
+│      ▼                    ▼                       ▼                   │
+│ ┌─────────┐          ┌─────────┐           ┌─────────────┐            │
+│ │图像/视频│          │文字任务 │           │ ComfyUI     │            │
+│ │本地处理 │          │云端处理 │           │ FLUX.2      │            │
+│ └─────────┘          └─────────┘           └─────────────┘            │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -68,24 +71,30 @@
 | 模块 | 职责 |
 |------|------|
 | **main.py** | FastAPI主服务，提供REST API和WebSocket接口，管理会话生命周期 |
-| **llm_service.py** | Kimi-K2.5 LLM服务，处理多模态输入(图像+视频)，生成艺术观察、开放式提问、编辑指令和创作反馈 |
+| **services/llm/core.py** | 双模型LLM服务：本地Qwen3.5 VLM(多模态分析) + 云端Kimi-K2.5(纯文字任务) |
+| **services/llm/parsers.py** | JSON解析、契约验证、约束解码集成 |
 | **image_service.py** | ComfyUI异步图像生成服务，批量提交+并行轮询，FP4量化降低显存占用 |
-| **scripts/comfyui_start.sh** | ComfyUI 启动脚本，`--highvram` 模式保持模型常驻显存 |
-| **models.py** | 数据模型定义，包括会话状态管理和数据持久化 |
-| **config.py** | 系统配置，包括LLM、ComfyUI、画布、视频等配置参数 |
+| **agent/** | Agent编排模块：Tool Registry + Plan Engine + Orchestrator + InterviewAgent |
+| **models.py** | 数据模型定义，会话状态管理与数据持久化 |
+| **db_models.py** | SQLAlchemy ORM模型，支持自动迁移 |
+| **config.py** | 系统配置，包括LLM、VLM、ComfyUI、画布、视频等配置参数 |
+| **start.sh / stop.sh** | 一键启动/停止脚本（检查环境→启动ComfyUI→启动后端） |
 
 ### 1.3 技术栈
 
 | 层级 | 技术 |
 |------|------|
-| **后端框架** | FastAPI, Python 3.12 |
+| **后端框架** | FastAPI, Python 3.12, SQLite + SQLAlchemy |
 | **实时通信** | WebSocket |
-| **LLM** | Kimi-K2.5 (Moonshot AI) |
-| **图像生成** | FLUX.2 Klein 4B FP8 + Qwen3-4B FP4 (ComfyUI) |
+| **本地VLM** | Qwen3.5 2B AWQ INT4 (~2.3GB), bf16推理, 支持图像+视频 |
+| **云端LLM** | Kimi-K2.5 (Moonshot AI) |
+| **图像生成** | FLUX.2 Klein 4B **NVFP4** + Qwen3-4B FP4 (ComfyUI), 0.5MP |
+| **结构化输出** | lm-format-enforcer 约束解码 |
 | **HTTP 客户端** | aiohttp (异步连接池) |
 | **前端** | Vanilla JS, Canvas API, MediaRecorder API |
-| **数据存储** | 本地JSON文件存储 |
+| **数据存储** | SQLite + Fernet加密, 会话状态持久化 |
 | **视频处理** | ffmpeg/ffprobe |
+| **Agent架构** | Tool Registry + Plan Engine + Orchestrator |
 
 ---
 
@@ -492,7 +501,8 @@ cd ComfyUI
 pip install -r requirements.txt
 
 # 下载模型权重（已预置在项目 ComfyUI/models/ 目录中）
-# diffusion_models/flux-2-klein-4b-fp8.safetensors  (3.8GB)
+# diffusion_models/flux-2-klein-4b-nvfp4.safetensors  (2.3GB, NVFP4, RTX 50系推荐)
+#   备选: flux-2-klein-4b-fp8.safetensors  (3.8GB, FP8)
 # text_encoders/qwen_3_4b_fp4_flux2.safetensors      (3.6GB, FP4)
 #   下载地址: https://huggingface.co/Comfy-Org/vae-text-encorder-for-flux-klein-4b/tree/main/split_files/text_encoders
 # text_encoders/qwen_3_4b.safetensors                (7.5GB, 备用)
@@ -512,6 +522,11 @@ bash DAPR-agent/scripts/comfyui_start.sh
 #### 步骤1：启动后端服务
 
 ```bash
+# 一键启动（检查环境 → 启动ComfyUI → 等待就绪 → 启动后端）
+cd DAPR-Analysis-System
+bash start.sh
+
+# 或手动启动
 cd DAPR-Analysis-System/DAPR-agent/backend
 python main.py
 ```
@@ -530,6 +545,12 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 |------|-----|
 | **受试者界面** | http://localhost:8000/ |
 | **观察伙伴面板** | http://localhost:8000/therapist/ |
+
+#### 步骤3：一键停止
+
+```bash
+bash stop.sh
+```
 
 ### 3.4 使用流程
 
@@ -669,21 +690,22 @@ CANVAS_CONFIG = {
 | 问题 | 解决方案 |
 |------|----------|
 | **内容生成失败** | 确认 MOONSHOT_API_KEY 已正确设置 |
-| **ComfyUI连接失败** | 确认ComfyUI服务已启动，检查config.py中的地址配置。若显存不足，尝试切换 FP4 text encoder (`qwen_3_4b_fp4_flux2.safetensors`) |
-| **显存OOM** | 确认使用 FP4 encoder（`qwen_3_4b_fp4_flux2.safetensors`，3.6GB），而非 FP16（`qwen_3_4b.safetensors`，7.5GB）。8GB显存即可运行 |
+| **本地VLM加载失败** | 确认 model/ 目录下存在 Qwen3.5 AWQ INT4 权重文件 |
+| **ComfyUI连接失败** | 确认ComfyUI服务已启动，检查config.py中的地址配置。若显存不足，尝试切换 FP4 text encoder |
+| **显存OOM** | 确认使用 FP4 encoder（3.6GB），8GB显存即可运行。或调小 `video_max_pixels` / `image_max_pixels` |
 | **密钥未设置** | 确认 `DAPR_ENCRYPTION_KEY` 环境变量已正确设置，否则会话数据无法保存 |
 | **视频录制失败** | 确保使用HTTPS或localhost，检查浏览器权限设置 |
-| **观察伙伴界面文字显示异常** | 检查kimi是否按指定的JSON格式输出回答 |
+| **JSON解析失败** | 检查 Qwen3.5 是否按指定 Schema 输出；lm-format-enforcer 约束解码会自动保障合法 JSON |
 
 ---
 
 ## 四、隐私说明
 
-- 所有用户数据仅存储于本地 `/DAPR-agent/sessions/` 目录
+- 所有用户数据仅存储于本地 SQLite 数据库，敏感字段（回答、视频路径）经 Fernet 对称加密
+- 原始绘画/视频仅由本地 Qwen3.5 VLM 处理，云端 Kimi 只接收文字分析摘要，实现隐私零泄露
 - 编辑后的图片存储在 `/DAPR-agent/outputs/`
-- 视频和绘画数据仅用于当前会话分析
-- 观察伙伴可查看完整过程用于陪伴与回顾
-- 建议在使用前获取用户知情同意
+- 数据仅用于当前会话分析，不用于模型训练或外部共享
+- 建议在使用前获取用户知情同意，并在引导页勾选确认
 
 ---
 
@@ -701,5 +723,5 @@ MIT License
 
 ---
 
-*文档版本: 1.1*  
-*最后更新: 2026-05-15*
+*文档版本: 1.2*  
+*最后更新: 2026-05-17*

@@ -1,23 +1,38 @@
 /* DAPR Agent 样式表 */
 
 :root {
-    --primary-color: #4a90e2;
-    --primary-dark: #357abd;
-    --secondary-color: #6c757d;
-    --success-color: #28a745;
-    --danger-color: #dc3545;
-    --warning-color: #ffc107;
-    --light-color: #f8f9fa;
-    --dark-color: #343a40;
-    --bg-color: #f5f7fa;
-    --card-bg: #ffffff;
-    --text-color: #333333;
-    --text-muted: #6c757d;
-    --border-color: #dee2e6;
-    --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.15);
-    --radius: 8px;
-    --radius-lg: 12px;
+    /* 反AI同质化：自然材料色系，拒绝科技蓝/霓虹紫 */
+    --ink: #2C2420;
+    --ink-light: #5C534D;
+    --paper: #F7F5F0;
+    --paper-warm: #F0EDE6;
+    --clay: #B8704B;
+    --clay-dark: #8C5A3C;
+    --moss: #6B7D5A;
+    --moss-light: #E8EDE3;
+    --rain: #7A8B99;
+    --rain-light: #E8ECF0;
+    --sunset: #C49A6C;
+    --cinnabar: #B54A3F;
+    
+    /* 兼容旧变量名 */
+    --primary-color: var(--clay);
+    --primary-dark: var(--clay-dark);
+    --secondary-color: var(--rain);
+    --success-color: var(--moss);
+    --danger-color: var(--cinnabar);
+    --warning-color: var(--sunset);
+    --light-color: var(--paper-warm);
+    --dark-color: var(--ink);
+    --bg-color: var(--paper);
+    --card-bg: #FFFCF8;
+    --text-color: var(--ink);
+    --text-muted: var(--rain);
+    --border-color: #D5CFC7;
+    --shadow: 0 1px 3px rgba(44, 36, 32, 0.06);
+    --shadow-lg: 0 2px 8px rgba(44, 36, 32, 0.08);
+    --radius: 4px;
+    --radius-lg: 8px;
 }
 
 * {
@@ -27,7 +42,7 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
     line-height: 1.6;

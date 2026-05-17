@@ -70,10 +70,6 @@ export function renderSessionDetail(session) {
                 <div class="detail-value">${session.initial_analysis.analysis_summary || '无'}</div>
             </div>
             <div class="detail-item">
-                <div class="detail-label">问题</div>
-                <div class="detail-value">${(session.questions_asked || []).map(q => q.question).join('<br>')}</div>
-            </div>
-            <div class="detail-item">
                 <div class="detail-label">猜想</div>
                 <div class="detail-value">
                     ${(session.hypotheses || []).map(h => `• ${h.description} (${h.confidence})`).join('<br>')}
@@ -82,7 +78,21 @@ export function renderSessionDetail(session) {
         </div>
         ` : ''}
         
-        ${session.user_answers && session.user_answers.length > 0 ? `
+        ${session.conversation_history && session.conversation_history.length > 0 ? `
+        <div class="detail-section">
+            <h3>自主访谈对话 (${session.conversation_history.length} 轮)</h3>
+            <div class="interview-chat-history">
+                ${session.conversation_history.map(msg => `
+                <div class="interview-msg ${msg.role}">
+                    <div class="interview-msg-role">${msg.role === 'agent' ? 'Agent' : '用户'}</div>
+                    <div class="interview-msg-content">${msg.content}</div>
+                </div>
+                `).join('')}
+            </div>
+        </div>
+        ` : ''}
+        
+        ${session.user_answers && session.user_answers.length > 0 && (!session.conversation_history || session.conversation_history.length === 0) ? `
         <div class="detail-section">
             <h3>用户回答</h3>
             ${session.user_answers.map((ans, i) => `

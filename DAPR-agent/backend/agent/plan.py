@@ -89,13 +89,6 @@ def plan_after_drawing(session_id: str) -> Plan:
     ])
 
 
-def plan_after_answers(session_id: str) -> Plan:
-    """用户回答后的执行计划"""
-    return Plan(session_id=session_id, steps=[
-        Step(tool_name="GenerateImageTool", input_context={"do_warmup": True}),
-    ])
-
-
 def plan_after_selection(session_id: str) -> Plan:
     """图像选择后的执行计划"""
     return Plan(session_id=session_id, steps=[

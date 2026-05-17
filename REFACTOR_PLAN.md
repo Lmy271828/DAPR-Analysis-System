@@ -381,9 +381,13 @@ DAPR-agent/static/
 |------|------|----------|
 | 954-976 | **新增** | 新增 WebSocket handler：`elif msg_type == "image_feedback":`，调用 `feedback_loop.py` 更新情感向量。 |
 
-### 4.5 云端推理适配（脱离本地GPU依赖）
+### 4.5 ~~云端推理适配（脱离本地GPU依赖）~~ → **冻结**
 
-**新增文件**：`DAPR-agent/backend/image_providers/`（全新目录）
+**决策**: 本地 ComfyUI 生成作为核心壁垒与差异化优势，不执行云端降级。本地推理零成本、低延迟、绘画数据隐私不外流，是产品核心卖点。
+
+以下设计文档保留供未来扩展参考，但大赛前不实现：
+
+~~**新增文件**：`DAPR-agent/backend/image_providers/`（全新目录）~~
 
 ```
 image_providers/
@@ -395,18 +399,18 @@ image_providers/
 └── fal_provider.py      # fal.ai
 ```
 
-**文件**：`DAPR-agent/backend/config.py`
+~~**文件**：`DAPR-agent/backend/config.py`~~
 
 | 行号 | 动作 | 具体内容 |
 |------|------|----------|
-| 33-38 | **修改** | `COMFYUI_CONFIG` 改为 `IMAGE_GEN_CONFIG`，增加 `provider: str` 字段（`local|replicate|runpod|fal`）。 |
+| ~~33-38~~ | ~~**修改**~~ | ~~`COMFYUI_CONFIG` 改为 `IMAGE_GEN_CONFIG`~~ |
 
-**文件**：`DAPR-agent/backend/image_service.py`
+~~**文件**：`DAPR-agent/backend/image_service.py`~~
 
 | 行号 | 动作 | 具体内容 |
 |------|------|----------|
-| 19-31 | **修改** | `ComfyUIService` 改名为 `ImageGenerationService`，内部根据配置实例化对应的 provider。 |
-| 175-266 | **修改** | `generate_variations()` 改为调用 `self.provider.generate_batch()`，返回统一的 `List[GeneratedImage]` 结构。 |
+| ~~19-31~~ | ~~**修改**~~ | ~~`ComfyUIService` 改名为 `ImageGenerationService`~~ |
+| ~~175-266~~ | ~~**修改**~~ | ~~`generate_variations()` 改为调用 `self.provider.generate_batch()`~~ |
 
 ---
 
@@ -435,7 +439,7 @@ image_providers/
 - [ ] 用户绘画的笔触数据被记录并用于 ControlNet 条件
 - [ ] 情感向量可以影响生成图像的色调/氛围（非随机）
 - [ ] 用户可以对图像点赞/点踩，系统能基于反馈生成更贴合偏好的变体
-- [ ] 系统可在无本地 GPU 环境下运行（通过云端 provider）
+- ~~[ ] 系统可在无本地 GPU 环境下运行~~ → **本地 ComfyUI 作为核心壁垒，不追求无 GPU 运行**
 
 ---
 
@@ -443,4 +447,4 @@ image_providers/
 
 这份计划的本质是**把项目从「一个危险的 demo」改造成「一个可参赛、可演示、可扩展的工程产品」**。Phase 1 是生存问题，不做等于违法；Phase 2 是产品定义问题，不做等于伪Agent；Phase 3 是工程质量，不做等于不能看；Phase 4 是大赛竞争力，不做等于跑题。
 
-如果资源极度有限（只剩1周），**只做 Phase 1 + Phase 3 中的数据库替换 + Phase 4 中的云端 provider 适配**。这样至少可以：合法合规地跑起来、支持多用户并发、不需要本地RTX 4090。这已经足够在大赛上拿出一个「能用的产品」而非「PPT 项目」。
+如果资源极度有限（只剩1周），**只做 Phase 1 + Phase 3 中的数据库替换**。本地 ComfyUI 生成是产品的核心壁垒与差异化优势——零成本、低延迟、绘画数据隐私不外流，无需追求无 GPU 降级方案。

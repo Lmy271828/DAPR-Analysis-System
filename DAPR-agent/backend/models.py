@@ -1,14 +1,13 @@
 """
 数据模型定义
 """
-import os
 from dataclasses import dataclass, field, asdict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
 import json
 import uuid
-from cryptography.fernet import Fernet
+from db_models import _encrypt_field, _decrypt_field
 
 
 class SessionStatus(Enum):
@@ -17,7 +16,8 @@ class SessionStatus(Enum):
     PERMISSION = "permission"           # 权限申请
     DRAWING = "drawing"                 # 绘画阶段
     ANALYZING = "analyzing"             # 分析阶段
-    QUESTIONING = "questioning"         # 提问阶段
+    CONVERSING = "conversing"           # 自主访谈阶段
+    QUESTIONING = "questioning"         # 提问阶段（兼容旧状态）
     GENERATING = "generating"           # 图像生成阶段
     SELECTING = "selecting"             # 选择阶段
     FINAL_QUESTIONS = "final_questions" # 最终问题阶段
@@ -42,7 +42,7 @@ class Session:
     # 文件路径
     drawing_image: Optional[str] = None        # 绘画成品
     webcam_video: Optional[str] = None         # 摄像头录像
-    screen_video: Optional[str] = None         # 录屏
+    canvas_video: Optional[str] = None         # 录屏
     
     # 分析结果
     initial_analysis: Optional[Dict] = None    # 初步分析
@@ -64,6 +64,10 @@ class Session:
     
     # Agent 执行状态（Plan Engine 持久化）
     agent_state: Optional[Dict] = None
+    
+    # 自主访谈 Agent 状态
+    interview_state: Optional[Dict] = None
+    conversation_history: List[Dict] = field(default_factory=list)
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -87,7 +91,7 @@ class Session:
                     consent_given=self.consent_given,
                     drawing_image=self.drawing_image,
                     webcam_video=self.webcam_video,
-                    screen_video=self.screen_video,
+                    canvas_video=self.canvas_video,
                     initial_analysis=self.initial_analysis,
                     questions_asked=self.questions_asked or [],
                     user_answers=_encrypt_field(self.user_answers),
@@ -98,6 +102,8 @@ class Session:
                     final_questions=self.final_questions or [],
                     final_answers=_encrypt_field(self.final_answers),
                     final_analysis=self.final_analysis,
+                    interview_state=self.interview_state,
+                    conversation_history=self.conversation_history or [],
                 )
                 db.merge(row)
                 db.commit()
@@ -114,13 +120,9 @@ class Session:
             sessions_dir = str(SESSIONS_DIR)
         filepath = f"{sessions_dir}/{self.id}.json"
         data = self.to_dict()
-        fernet = _get_fernet()
-        if fernet:
-            for field_name in _ENCRYPTED_FIELDS:
-                if field_name in data and data[field_name] is not None:
-                    raw = json.dumps(data[field_name], ensure_ascii=False)
-                    encrypted = fernet.encrypt(raw.encode()).decode()
-                    data[field_name] = f"enc:{encrypted}"
+        for field_name in _ENCRYPTED_FIELDS:
+            if field_name in data:
+                data[field_name] = _encrypt_field(data[field_name])
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     
@@ -144,7 +146,7 @@ class Session:
                     consent_given=row.consent_given,
                     drawing_image=row.drawing_image,
                     webcam_video=row.webcam_video,
-                    screen_video=row.screen_video,
+                    canvas_video=row.canvas_video,
                     initial_analysis=row.initial_analysis,
                     questions_asked=row.questions_asked or [],
                     user_answers=_decrypt_field(row.user_answers) or [],
@@ -155,6 +157,8 @@ class Session:
                     final_questions=row.final_questions or [],
                     final_answers=_decrypt_field(row.final_answers) or [],
                     final_analysis=row.final_analysis,
+                    interview_state=row.interview_state,
+                    conversation_history=row.conversation_history or [],
                 )
             finally:
                 db.close()
@@ -172,15 +176,9 @@ class Session:
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            fernet = _get_fernet()
             for field_name in _ENCRYPTED_FIELDS:
-                if field_name in data and isinstance(data[field_name], str) and data[field_name].startswith("enc:"):
-                    if fernet:
-                        encrypted = data[field_name][4:]
-                        decrypted = fernet.decrypt(encrypted.encode()).decode()
-                        data[field_name] = json.loads(decrypted)
-                    else:
-                        data[field_name] = None
+                if field_name in data:
+                    data[field_name] = _decrypt_field(data[field_name])
             return cls(
                 id=data['id'],
                 created_at=data['created_at'],
@@ -190,7 +188,7 @@ class Session:
                 consent_given=data.get('consent_given', False),
                 drawing_image=data.get('drawing_image'),
                 webcam_video=data.get('webcam_video'),
-                screen_video=data.get('screen_video'),
+                canvas_video=data.get('canvas_video'),
                 initial_analysis=data.get('initial_analysis'),
                 questions_asked=data.get('questions_asked', []),
                 user_answers=data.get('user_answers', []),
@@ -201,6 +199,8 @@ class Session:
                 final_questions=data.get('final_questions', []),
                 final_answers=data.get('final_answers', []),
                 final_analysis=data.get('final_analysis'),
+                interview_state=data.get('interview_state'),
+                conversation_history=data.get('conversation_history', []),
             )
         except (FileNotFoundError, KeyError, ValueError):
             return None
@@ -243,16 +243,5 @@ class TherapistLog:
     data: Optional[Dict[str, Any]] = None   # 额外数据（如问题和回答）
 
 
-# 敏感字段加密
-def _get_fernet() -> Optional[Fernet]:
-    """获取 Fernet 实例，密钥来自环境变量 DAPR_ENCRYPTION_KEY"""
-    key = os.environ.get("DAPR_ENCRYPTION_KEY")
-    if not key:
-        return None
-    try:
-        return Fernet(key.encode())
-    except Exception:
-        return None
-
 # 需要加密的敏感字段列表
-_ENCRYPTED_FIELDS = {"user_answers", "final_answers", "webcam_video", "screen_video"}
+_ENCRYPTED_FIELDS = {"user_answers", "final_answers", "webcam_video", "canvas_video"}

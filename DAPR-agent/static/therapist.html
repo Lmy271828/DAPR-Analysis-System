@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DAPR 心理咨询师监控面板</title>
+    <title>DAPR 观察伙伴面板</title>
     <style>
         * {
             margin: 0;
@@ -13,20 +13,20 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #1a1a2e;
+            background: #1C1A17;
             color: #eee;
             min-height: 100vh;
         }
         
         .header {
-            background: #16213e;
+            background: #242220;
             padding: 20px 30px;
-            border-bottom: 1px solid #0f3460;
+            border-bottom: 1px solid #2A2724;
         }
         
         .header h1 {
             font-size: 1.5rem;
-            color: #e94560;
+            color: #B8704B;
         }
         
         .header .subtitle {
@@ -43,14 +43,14 @@
         /* 左侧会话列表 */
         .sidebar {
             width: 300px;
-            background: #16213e;
-            border-right: 1px solid #0f3460;
+            background: #242220;
+            border-right: 1px solid #2A2724;
             overflow-y: auto;
         }
         
         .sidebar-header {
             padding: 20px;
-            border-bottom: 1px solid #0f3460;
+            border-bottom: 1px solid #2A2724;
         }
         
         .sidebar-header h2 {
@@ -63,8 +63,8 @@
         }
         
         .session-item {
-            background: #1a1a2e;
-            border: 1px solid #0f3460;
+            background: #1C1A17;
+            border: 1px solid #2A2724;
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 10px;
@@ -73,12 +73,12 @@
         }
         
         .session-item:hover {
-            border-color: #e94560;
+            border-color: #B8704B;
         }
         
         .session-item.active {
-            background: #0f3460;
-            border-color: #e94560;
+            background: #2A2724;
+            border-color: #B8704B;
         }
         
         .session-id {
@@ -96,15 +96,15 @@
             font-weight: 600;
         }
         
-        .status-guidance { background: #6c757d; }
-        .status-permission { background: #ffc107; color: #000; }
-        .status-drawing { background: #17a2b8; }
-        .status-analyzing { background: #6610f2; }
-        .status-questioning { background: #fd7e14; }
-        .status-generating { background: #e83e8c; }
-        .status-selecting { background: #20c997; }
-        .status-final { background: #007bff; }
-        .status-completed { background: #28a745; }
+        .status-guidance { background: #7A8B99; }
+        .status-permission { background: #C49A6C; color: #000; }
+        .status-drawing { background: #6B7D5A; }
+        .status-analyzing { background: #7A8B99; }
+        .status-questioning { background: #C49A6C; }
+        .status-generating { background: #B8704B; }
+        .status-selecting { background: #6B7D5A; }
+        .status-final { background: #7A8B99; }
+        .status-completed { background: #6B7D5A; }
         
         /* 右侧日志区域 */
         .main-content {
@@ -115,9 +115,9 @@
         }
         
         .log-toolbar {
-            background: #16213e;
+            background: #242220;
             padding: 15px 20px;
-            border-bottom: 1px solid #0f3460;
+            border-bottom: 1px solid #2A2724;
             display: flex;
             gap: 10px;
             align-items: center;
@@ -125,8 +125,8 @@
         
         .log-toolbar button {
             padding: 8px 16px;
-            background: #0f3460;
-            border: 1px solid #1a1a2e;
+            background: #2A2724;
+            border: 1px solid #1C1A17;
             color: #eee;
             border-radius: 4px;
             cursor: pointer;
@@ -134,7 +134,7 @@
         }
         
         .log-toolbar button:hover {
-            background: #e94560;
+            background: #B8704B;
         }
         
         .log-container {
@@ -144,8 +144,8 @@
         }
         
         .log-entry {
-            background: #16213e;
-            border: 1px solid #0f3460;
+            background: #242220;
+            border: 1px solid #2A2724;
             border-radius: 8px;
             padding: 20px;
             margin-bottom: 15px;
@@ -157,7 +157,7 @@
             align-items: center;
             margin-bottom: 15px;
             padding-bottom: 10px;
-            border-bottom: 1px solid #0f3460;
+            border-bottom: 1px solid #2A2724;
         }
         
         .log-time {
@@ -167,7 +167,7 @@
         }
         
         .log-stage {
-            background: #e94560;
+            background: #B8704B;
             padding: 4px 12px;
             border-radius: 4px;
             font-size: 0.8rem;
@@ -197,7 +197,7 @@
         }
         
         .log-content {
-            background: #1a1a2e;
+            background: #1C1A17;
             border-radius: 4px;
             padding: 12px;
             font-family: 'Consolas', 'Monaco', monospace;
@@ -223,7 +223,7 @@
         }
         
         .log-content.readable strong {
-            color: #e94560;
+            color: #B8704B;
         }
         
         .log-content.readable ul,
@@ -256,23 +256,23 @@
         
         .filter-tag {
             padding: 4px 12px;
-            background: #1a1a2e;
-            border: 1px solid #0f3460;
+            background: #1C1A17;
+            border: 1px solid #2A2724;
             border-radius: 12px;
             font-size: 0.8rem;
             cursor: pointer;
         }
         
         .filter-tag.active {
-            background: #e94560;
-            border-color: #e94560;
+            background: #B8704B;
+            border-color: #B8704B;
         }
         
         /* 详情面板 */
         .detail-panel {
             width: 400px;
-            background: #16213e;
-            border-left: 1px solid #0f3460;
+            background: #242220;
+            border-left: 1px solid #2A2724;
             overflow-y: auto;
             display: none;
         }
@@ -283,7 +283,7 @@
         
         .detail-header {
             padding: 20px;
-            border-bottom: 1px solid #0f3460;
+            border-bottom: 1px solid #2A2724;
         }
         
         .detail-content {
@@ -302,7 +302,7 @@
         }
         
         .detail-item {
-            background: #1a1a2e;
+            background: #1C1A17;
             padding: 12px;
             border-radius: 6px;
             margin-bottom: 10px;
@@ -339,7 +339,7 @@
             align-items: center;
             gap: 8px;
             padding: 8px 16px;
-            background: #16213e;
+            background: #242220;
             border-radius: 20px;
             font-size: 0.85rem;
         }
@@ -348,11 +348,11 @@
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: #28a745;
+            background: #6B7D5A;
         }
         
         .status-dot.disconnected {
-            background: #dc3545;
+            background: #B54A3F;
         }
         
         /* 响应式 */
@@ -383,12 +383,48 @@
                 z-index: 1000;
             }
         }
+        
+        /* ── 自主访谈对话历史 ── */
+        .interview-chat-history {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            background: #0f0f1a;
+            border-radius: 8px;
+        }
+        .interview-msg {
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            max-width: 90%;
+        }
+        .interview-msg.agent {
+            background: #1C1A17;
+            border: 1px solid #2a2a3e;
+            border-bottom-left-radius: 4px;
+        }
+        .interview-msg.user {
+            background: #1e3a5f;
+            border: 1px solid #2a4a6f;
+            border-bottom-right-radius: 4px;
+            margin-left: auto;
+        }
+        .interview-msg-role {
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        .interview-msg-content {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: #ddd;
+        }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>🧠 DAPR 心理咨询师监控面板</h1>
-        <div class="subtitle">实时监控受试者绘画过程与AI分析结果</div>
+        <h1>DAPR 观察伙伴面板</h1>
+        <div class="subtitle">陪伴创作过程，见证每一笔情绪</div>
     </div>
     
     <div class="connection-status">
@@ -401,8 +437,8 @@
         <div class="sidebar">
             <div class="sidebar-header">
                 <h2>会话列表</h2>
-                <button onclick="showHistoryModal()" class="btn-history" style="margin-top: 10px; padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; width: 100%;">
-                    📂 导入历史会话
+                <button onclick="showHistoryModal()" class="btn-history" style="margin-top: 10px; padding: 8px 16px; background: #6B7D5A; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; width: 100%;">
+                    导入历史会话
                 </button>
             </div>
             <div class="session-list" id="session-list">
@@ -412,21 +448,21 @@
         
         <!-- 历史会话选择弹窗 -->
         <div id="history-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; overflow-y: auto;">
-            <div class="modal-content" style="background: #1a1a2e; max-width: 900px; margin: 50px auto; border-radius: 12px; overflow: hidden;">
-                <div class="modal-header" style="background: #16213e; padding: 20px; border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between; align-items: center;">
-                    <h2>📂 选择历史会话进行分析</h2>
+            <div class="modal-content" style="background: #1C1A17; max-width: 900px; margin: 50px auto; border-radius: 12px; overflow: hidden;">
+                <div class="modal-header" style="background: #242220; padding: 20px; border-bottom: 1px solid #2A2724; display: flex; justify-content: space-between; align-items: center;">
+                    <h2>选择历史会话</h2>
                     <button onclick="closeHistoryModal()" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
                 </div>
                 <div class="modal-body" style="padding: 20px; max-height: 70vh; overflow-y: auto;">
                     <div id="history-loading" style="text-align: center; padding: 40px;">
-                        <div class="spinner" style="width: 40px; height: 40px; border: 3px solid #0f3460; border-top-color: #e94560; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
+                        <div class="spinner" style="width: 40px; height: 40px; border: 3px solid #2A2724; border-top-color: #B8704B; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
                         <p>正在加载历史会话...</p>
                     </div>
                     <div id="history-list" style="display: none;">
                         <!-- 历史会话列表 -->
                     </div>
                     <div id="history-empty" style="display: none; text-align: center; padding: 40px; color: #888;">
-                        <div style="font-size: 3rem; margin-bottom: 15px;">📁</div>
+                        <div style="font-size: 3rem; margin-bottom: 15px; color: var(--rain);">—</div>
                         <p>暂无历史会话</p>
                     </div>
                 </div>
@@ -436,8 +472,8 @@
         <!-- 中间日志区域 -->
         <div class="main-content">
             <div class="log-toolbar">
-                <button onclick="refreshSessions()">🔄 刷新</button>
-                <button onclick="clearLogs()">🗑️ 清空</button>
+                <button onclick="refreshSessions()">刷新</button>
+                <button onclick="clearLogs()">清空</button>
                 <div class="filter-tags">
                     <span class="filter-tag active" data-filter="all">全部</span>
                     <span class="filter-tag" data-filter="llm">LLM</span>
@@ -446,7 +482,7 @@
             </div>
             <div class="log-container" id="log-container">
                 <div class="empty-state">
-                    <div class="empty-state-icon">📋</div>
+                    <div class="empty-state-icon" style="font-family: serif; font-style: italic; color: var(--rain);">waiting</div>
                     <p>等待新的日志...</p>
                     <p style="font-size: 0.85rem; color: #666; margin-top: 10px;">
                         提示：需要受试者在 <a href="/" target="_blank">localhost:8000</a> 完成绘画才能看到日志

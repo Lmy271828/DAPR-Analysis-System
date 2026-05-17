@@ -5,11 +5,11 @@ SQLAlchemy ORM 模型定义
 import os
 import json
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, Any
 
 from sqlalchemy import (
     create_engine, Column, String, DateTime, Boolean, JSON, Text,
-    event, inspect
+    inspect
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, Session as DBSession
 
@@ -32,7 +32,7 @@ class SessionModel(Base):
 
     drawing_image = Column(String(512), nullable=True)
     webcam_video = Column(String(512), nullable=True)
-    screen_video = Column(String(512), nullable=True)
+    canvas_video = Column(String(512), nullable=True)
 
     initial_analysis = Column(JSON, nullable=True)
     questions_asked = Column(JSON, default=list)
@@ -45,6 +45,10 @@ class SessionModel(Base):
     final_questions = Column(JSON, default=list)
     final_answers = Column(Text, nullable=True)      # JSON 字符串，加密存储
     final_analysis = Column(JSON, nullable=True)
+    
+    # 自主访谈 Agent 状态
+    interview_state = Column(JSON, nullable=True)    # InterviewAgent 序列化状态
+    conversation_history = Column(JSON, default=list)  # 访谈对话历史
 
 
 class TherapistLogModel(Base):
@@ -95,9 +99,30 @@ def get_session_local(db_path: str = None):
 
 
 def init_db(db_path: str = None):
-    """初始化数据库（创建表）"""
+    """初始化数据库（创建表），并自动迁移新增字段"""
     engine = get_engine(db_path)
     Base.metadata.create_all(bind=engine)
+    
+    # ── 自动迁移：为已有表添加新字段 ──
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    if 'sessions' in inspector.get_table_names():
+        columns = [c['name'] for c in inspector.get_columns('sessions')]
+        with engine.connect() as conn:
+            if 'interview_state' not in columns:
+                conn.execute(text("ALTER TABLE sessions ADD COLUMN interview_state JSON"))
+                conn.commit()
+                print("[DB] 迁移: 添加 interview_state 字段")
+            if 'conversation_history' not in columns:
+                conn.execute(text("ALTER TABLE sessions ADD COLUMN conversation_history JSON DEFAULT '[]'"))
+                conn.commit()
+                print("[DB] 迁移: 添加 conversation_history 字段")
+            # 重命名 screen_video → canvas_video（字段语义澄清）
+            if 'screen_video' in columns and 'canvas_video' not in columns:
+                conn.execute(text("ALTER TABLE sessions RENAME COLUMN screen_video TO canvas_video"))
+                conn.commit()
+                print("[DB] 迁移: screen_video 重命名为 canvas_video")
+    
     print(f"[DB] 数据库初始化完成: {db_path or 'data/dapr.db'}")
 
 

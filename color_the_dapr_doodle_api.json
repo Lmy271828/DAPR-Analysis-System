@@ -85,7 +85,7 @@
   },
   "75:70": {
     "inputs": {
-      "unet_name": "flux-2-klein-4b-fp8.safetensors",
+      "unet_name": "flux-2-klein-4b-nvfp4.safetensors",
       "weight_dtype": "default"
     },
     "class_type": "UNETLoader",
@@ -133,7 +133,7 @@
   "75:80": {
     "inputs": {
       "upscale_method": "nearest-exact",
-      "megapixels": 1,
+      "megapixels": 0.5,
       "resolution_steps": 1,
       "image": [
         "76",

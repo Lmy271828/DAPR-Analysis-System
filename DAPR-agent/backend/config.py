@@ -30,6 +30,23 @@ LLM_CONFIG = {
     "max_context": 32000,    # 上下文窗口大小
 }
 
+# 本地 VLM 配置 (Qwen3.5 AWQ INT4)
+# 显存优化说明见 docs/VLM_VRAM_OPTIMIZATION.md
+LOCAL_VLM_CONFIG = {
+    "model_path": str(PROJECT_ROOT / "model"),
+    "torch_dtype": "bfloat16",
+    "device_map": "cuda",
+    "max_new_tokens": 512,           # 分析/问答 512 tokens 足够，降低峰值显存
+    "video_max_frames": 10,          # 每个视频均匀提取 10 帧（去掉首尾）
+    "video_fps": 0.5,
+    "image_max_size": 448,           # 图像最长边限制（processor 默认不限制，需手动 resize）
+    # === 显存节流关键参数：限制 processor 的像素预算 ===
+    # 默认 max_pixels=6,291,456 对视频过大，易导致 OOM
+    "video_max_pixels": 4_000_000,   # 视频总像素预算（帧数×高×宽），4M 对应 10 帧画布(346×448)+摄像头(448×448)
+    "image_max_pixels": 1_000_000,   # 图像总像素预算
+    "use_local_vlm": os.environ.get("USE_LOCAL_VLM", "true").lower() in ("true", "1", "yes"),
+}
+
 # ComfyUI 配置
 COMFYUI_CONFIG = {
     "server_address": "127.0.0.1:8188",

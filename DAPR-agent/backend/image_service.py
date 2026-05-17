@@ -16,7 +16,7 @@ import uuid
 import random
 import asyncio
 import aiohttp
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional
 from pathlib import Path
 
 from config import COMFYUI_CONFIG, OUTPUTS_DIR
@@ -560,7 +560,9 @@ class ComfyUIService:
             print(f"[ImageGen] 模型预热失败: {e}")
             return False
     
-    async def warmup_with_image(self, image_path: str, force: bool = False) -> bool:
+    async def warmup_with_image(
+        self, image_path: str, force: bool = False, input_name: str = None
+    ) -> bool:
         """
         使用用户真实绘画进行预热。
         
@@ -571,6 +573,7 @@ class ComfyUIService:
         Args:
             image_path: 用户绘画的真实路径（已保存到磁盘）
             force: 强制重新预热
+            input_name: ComfyUI 上的图像名，若已上传则直接传入避免重复上传
         """
         if ComfyUIService._models_warmed_up and not force:
             return True
@@ -579,12 +582,13 @@ class ComfyUIService:
         t0 = time.time()
         
         try:
-            # 上传用户真实绘画（ComfyUI 需要）
-            input_name = os.path.basename(image_path)
-            try:
-                await self.upload_image_async(image_path, input_name)
-            except Exception:
-                pass  # 图像可能已存在
+            # 若未提供 input_name，则计算默认值并上传
+            if input_name is None:
+                input_name = os.path.basename(image_path)
+                try:
+                    await self.upload_image_async(image_path, input_name)
+                except Exception:
+                    pass  # 图像可能已存在
             
             # 构建最小化工作流：1-step dummy prompt，只加载模型不追求画质
             wf = self.modify_workflow(
@@ -658,9 +662,9 @@ class ComfyUIService:
         variations = variations[:3]
         print(f"[ImageGen] 将生成 {len(variations)} 个图像变体")
         
-        # 可选：预热模型（首次调用时）
+        # 可选：预热模型（首次调用时，使用真实绘画避免重复上传）
         if do_warmup:
-            await self.warmup()
+            await self.warmup_with_image(input_image_path, input_name=input_name)
         
         # 1. 批量提交（一次性入队）
         t0 = time.time()

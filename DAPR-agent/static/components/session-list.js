@@ -58,7 +58,7 @@ export async function loadHistorySessions() {
 
     } catch (error) {
         console.error('加载历史会话失败:', error);
-        loadingEl.innerHTML = `<p style="color: #e94560;">加载失败: ${error.message}</p>`;
+        loadingEl.innerHTML = `<p style="color: #B8704B;">加载失败: ${error.message}</p>`;
     }
 }
 
@@ -73,15 +73,15 @@ export function renderHistorySessions(sessions) {
 
         const hasAnalysis = session.session_data?.has_analysis;
         const analysisBadge = hasAnalysis ? 
-            '<span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">已分析</span>' :
-            '<span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">未分析</span>';
+            '<span style="background: #6B7D5A; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">已分析</span>' :
+            '<span style="background: #C49A6C; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">未分析</span>';
 
         return `
-            <div class="history-item" style="background: #16213e; border: 1px solid #0f3460; border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; gap: 15px;">
-                <div class="history-preview" style="width: 120px; height: 120px; background: #1a1a2e; border-radius: 8px; overflow: hidden; flex-shrink: 0;">
+            <div class="history-item" style="background: #242220; border: 1px solid #2A2724; border-radius: 8px; padding: 15px; margin-bottom: 15px; display: flex; gap: 15px;">
+                <div class="history-preview" style="width: 120px; height: 120px; background: #1C1A17; border-radius: 8px; overflow: hidden; flex-shrink: 0;">
                     <img src="/api/history/session/${session.id}/preview" 
                          style="width: 100%; height: 100%; object-fit: contain;"
-                         onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🎨</text></svg>'">
+                         onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>画</text></svg>'">
                 </div>
                 <div class="history-info" style="flex: 1;">
                     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
@@ -93,19 +93,19 @@ export function renderHistorySessions(sessions) {
                     </div>
                     <div style="display: flex; gap: 15px; font-size: 0.8rem; color: #aaa; margin-bottom: 10px;">
                         <span title="摄像头视频">📹 ${hasWebcam}</span>
-                        <span title="屏幕录制">🖥️ ${hasScreen}</span>
+                        <span title="屏幕录制">${hasScreen}</span>
                         <span title="会话数据">💾 ${hasJson}</span>
                     </div>
                     <div style="display: flex; gap: 10px;">
                         <button onclick="analyzeHistorySession('${session.id}', false)" 
-                                style="flex: 1; padding: 8px 16px; background: #e94560; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;"
+                                style="flex: 1; padding: 8px 16px; background: #B8704B; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;"
                                 title="在原始会话上重新进行分析，会覆盖之前的分析结果">
                             🔍 重新分析
                         </button>
                         <button onclick="analyzeHistorySession('${session.id}', true)" 
-                                style="flex: 1; padding: 8px 16px; background: #0f3460; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;"
+                                style="flex: 1; padding: 8px 16px; background: #2A2724; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;"
                                 title="创建一个新会话，复制该会话的绘画和视频文件进行独立分析，不会修改原始会话数据">
-                            📋 复制为新会话
+                            复制为新会话
                         </button>
                     </div>
                 </div>

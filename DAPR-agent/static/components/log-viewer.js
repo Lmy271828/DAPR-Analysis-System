@@ -83,7 +83,7 @@ export function createStreamLogElement(log) {
                 <span class="log-session">${log.session_id.substring(0, 8)}...</span>
                 <span class="log-time">${new Date(log.timestamp).toLocaleString()}</span>
             </div>
-            <span class="log-stage" style="background: #6610f2;">🔴 分析中...</span>
+            <span class="log-stage" style="background: #7A8B99;">🔴 分析中...</span>
         </div>
         <div class="log-section">
             <div class="log-section-title">⚡ 实时生成中</div>
@@ -91,7 +91,7 @@ export function createStreamLogElement(log) {
                 速度: <span class="stream-speed">0.00 chars/s</span> | 
                 字符数: <span class="stream-tokens">0</span>
             </div>
-            <div class="stream-content log-content" style="background: #0f3460; min-height: 100px; max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-family: monospace; font-size: 0.85rem; line-height: 1.5;">
+            <div class="stream-content log-content" style="background: #2A2724; min-height: 100px; max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-family: monospace; font-size: 0.85rem; line-height: 1.5;">
                 等待输出...
             </div>
         </div>
@@ -130,7 +130,7 @@ export function markStreamComplete(element, output) {
 
     if (stageEl) {
         stageEl.textContent = '✅ 分析完成';
-        stageEl.style.background = '#28a745';
+        stageEl.style.background = '#6B7D5A';
     }
     if (statsEl) {
         statsEl.innerHTML = `
@@ -162,7 +162,7 @@ export function renderLogs() {
     if (filteredLogs.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
-                <div class="empty-state-icon">📋</div>
+                <div class="empty-state-icon"></div>
                 <p>${state.logs.length === 0 ? '等待新的日志...' : '没有符合条件的日志'}</p>
             </div>
         `;

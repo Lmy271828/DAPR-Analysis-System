@@ -37,6 +37,28 @@ Thumbs.db
 *.swp
 *.swo
 
+# 虚拟环境
+.venv/
+*/.venv/
+
+# 模型权重
+/model/
+
+# 视频与媒体文件
+*.mp4
+*.mp3
+*.wav
+*.avi
+*.mov
+
+# PPT与临时脚本
+*.pptx
+generate_ppt.py
+
+# 本地数据与输出
+/DAPR-agent/data/
+/DAPR-agent/backend/data/
+
 # 测试输出与资源文件
 /tests/
 */tests/outputs/

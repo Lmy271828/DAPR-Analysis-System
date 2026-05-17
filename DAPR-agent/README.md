@@ -116,7 +116,7 @@ CANVAS_CONFIG = {
 - **后端**: FastAPI, WebSocket, Python 3.12
 - **前端**: Vanilla JS, Canvas API, MediaRecorder API
 - **Agent 模型**: kimi-k2.5
-- **图像生成**: FLUX.2 Klein 4B Distill (ComfyUI)
+- **图像生成**: FLUX.2 Klein 4B NVFP4 + Qwen3-4B FP4 (ComfyUI), 0.5MP
 - **通信**: WebSocket 实时推送
 
 ## 📝 API 文档

@@ -133,11 +133,13 @@ DAPR-agent/backend/cert/.gitkeep     # 证书目录占位
 
 ---
 
-### Task 5: 图像生成云端 Provider 适配（Week 2-3，保底方案）
+### Task 5: 图像生成云端 Provider 适配（~~Week 2-3，保底方案~~ → **冻结**）
 
-**目标**: 无本地 GPU 时自动降级到云端。
+**决策**: 本地 ComfyUI 生成作为核心壁垒与差异化优势，不执行云端降级。本地推理零成本、低延迟、绘画数据隐私不外流，是产品核心卖点。
 
-**新增文件**:
+**说明**: 以下设计文档保留供未来扩展参考，但大赛前不实现。
+
+~~**新增文件**~~:
 ```
 DAPR-agent/backend/image_providers/
 ├── __init__.py
@@ -146,17 +148,12 @@ DAPR-agent/backend/image_providers/
 └── replicate_provider.py    # Replicate API fallback
 ```
 
-**修改文件**:
+~~**修改文件**~~:
 | 文件 | 变更 |
 |------|------|
-| `image_service.py` | `ComfyUIService` 改为 `ImageGenerationService`，内部根据配置选择 provider |
-| `config.py` | `COMFYUI_CONFIG` → `IMAGE_GEN_CONFIG`，增加 `provider: str` 字段 |
-| `requirements.txt` | +`replicate>=0.20.0` |
-
-**验收标准**:
-- [ ] 本地 GPU 正常时走 ComfyUI
-- [ ] 本地 GPU 不可用时自动切换 Replicate
-- [ ] 单张图成本 < ¥0.3
+| ~~`image_service.py`~~ | ~~`ComfyUIService` 改为 `ImageGenerationService`~~ |
+| ~~`config.py`~~ | ~~`COMFYUI_CONFIG` → `IMAGE_GEN_CONFIG`~~ |
+| ~~`requirements.txt`~~ | ~~+`replicate>=0.20.0`~~ |
 
 ---
 
@@ -173,7 +170,7 @@ Week 2 (5/22-5/29):
   └─ Task 4: HTTPS 支持
 
 Week 3 (5/29-6/05):
-  └─ Task 5: 云端 Provider 适配（保底方案）
+  └─ ~~Task 5: 云端 Provider 适配~~ → **冻结，本地 ComfyUI 作为核心优势**
 ```
 
 **最终交付物**:
@@ -181,7 +178,7 @@ Week 3 (5/29-6/05):
 - 前端组件化
 - 流式优化
 - HTTPS
-- 云端 fallback
+- ~~云端 fallback~~ → **冻结，本地 ComfyUI 作为核心优势**
 
 ---
 

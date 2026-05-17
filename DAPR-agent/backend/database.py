@@ -5,7 +5,7 @@
 import os
 from pathlib import Path
 
-from db_models import init_db, get_engine, get_session_local
+from db_models import init_db, get_session_local
 
 
 DB_PATH = os.environ.get("DAPR_DB_PATH", "./data/dapr.db")
@@ -27,7 +27,8 @@ def setup_database():
 def migrate_json_to_db():
     """将现有的本地 JSON 会话文件迁移到数据库"""
     from pathlib import Path
-    from models import Session, SESSIONS_DIR
+    from models import Session
+    from config import SESSIONS_DIR
     from db_models import get_session_local, SessionModel, _encrypt_field
     
     sessions_dir = Path(SESSIONS_DIR)
@@ -59,16 +60,20 @@ def migrate_json_to_db():
                 continue
             
             # 写入数据库
+            from datetime import datetime
+            created_at = session.created_at
+            if isinstance(created_at, str):
+                created_at = datetime.fromisoformat(created_at)
             row = SessionModel(
                 id=session.id,
-                created_at=session.created_at if isinstance(session.created_at, str) else session.created_at.isoformat(),
+                created_at=created_at,
                 status=session.status.value,
                 age_group=session.age_group,
                 gender=session.gender,
                 consent_given=session.consent_given,
                 drawing_image=session.drawing_image,
                 webcam_video=session.webcam_video,
-                screen_video=session.screen_video,
+                canvas_video=session.canvas_video,
                 initial_analysis=session.initial_analysis,
                 questions_asked=session.questions_asked or [],
                 user_answers=_encrypt_field(session.user_answers),

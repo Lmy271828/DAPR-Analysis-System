@@ -7,6 +7,43 @@
 
 ## [Unreleased] — 重构进行中
 
+### 🎙️ 自主访谈 Agent（已完成）
+
+#### 已完成
+
+- **InterviewAgent — 替换固定问卷的对话式智能访谈**
+  - 新增 `agent/interview_agent.py`：`InterviewAgent` 类实现自主访谈主循环
+    - `MAX_TURNS=8` / `MIN_TURNS=2` 轮次控制，防止无限追问与过早结束
+    - `asyncio.Event` 阻塞等待用户回答，非轮询、低 CPU 占用
+    - `_is_sufficient()` → LLM 评估信息是否足够生图
+    - `_generate_next_question()` → LLM 根据对话历史动态生成追问
+    - `_enter_image_generation()` → 从完整对话提取生图 prompt，提交 `GenerateImageTool` Plan
+    - `to_dict()` / `from_dict()` → 状态持久化，页面刷新后可恢复
+    - 5 个状态：`idle` / `evaluating` / `asking` / `waiting` / `complete`
+  - `llm_service.py`：InterviewAgent 直接复用 `KimiService.generate()` 方法，通过 `asyncio.to_thread()` 异步调用，无需新增专用接口
+  - `models.py`：`Session` 新增 `interview_state`（InterviewAgent 序列化状态）和 `conversation_history`（聊天历史数组）
+  - `models.py`：`SessionStatus` 新增 `conversing` 状态，标识访谈进行中
+  - `main.py`：
+    - `interview_agents: Dict[str, InterviewAgent]` 注册表，会话级单例
+    - `POST /api/session/{id}/chat-answer` 新端点，接收用户回答并驱动 Agent 继续
+    - 分析流完成后自动启动 InterviewAgent（替代旧固定问卷）
+    - 页面刷新时自动恢复 InterviewAgent 状态
+  - **前端：聊天式访谈 UI**
+    - `index.html`：`questioning-page` 从表单改造为聊天界面
+    - `app.js`：
+      - `handleChatQuestion(msg)` → 渲染 Agent 消息气泡
+      - `handleInterviewComplete(msg)` → 显示「准备生成」过渡页
+      - `sendChatAnswer()` → 发送用户回答到 `/chat-answer`
+      - `showGeneratingPage()` → 从 `generating` 状态恢复时显示进度
+    - 新增 WebSocket 消息类型：`chat_question`、`interview_complete`、`agent_state` 进度、`agent_error` 错误
+  - **咨询师面板：对话历史展示**
+    - `therapist.html`：新增 `.interview-chat-history` / `.interview-msg` 等 CSS 气泡样式
+    - `session-detail.js`：`renderConversationHistory()` 渲染完整对话记录
+    - 新增「自主访谈记录」区块，在会话详情页显示 Agent 与用户的全部问答
+  - **向后兼容**：旧 `/answers` REST API 仍然保留，历史会话可正常查看
+
+---
+
 ### 🏛️ Agent 架构重构（已完成）
 
 #### 已完成
@@ -60,7 +97,7 @@
 
 #### 待完成
 
-- [ ] 图像生成云端 Provider 适配（Replicate API fallback，无本地 GPU 时自动降级）
+- ~~[ ] 图像生成云端 Provider 适配（Replicate API fallback）~~ → **冻结**：本地 ComfyUI 生成作为核心壁垒与差异化优势，不降级到云端
 
 ---
 
@@ -184,7 +221,17 @@
 - [x] therapist.html 组件化拆分（ES Module）
 - [x] 流式输出节流（5字符 → 30字符）
 - [x] HTTPS 自签名证书支持
-- [ ] 图像生成云端 Provider 适配（Replicate fallback，待完成）
+- ~~[ ] 图像生成云端 Provider 适配（Replicate fallback）~~ → **冻结**：本地 ComfyUI 生成作为核心壁垒与差异化优势，不降级到云端
+- **生产环境优化 — 图像分辨率降级**
+  - 工作流 `color_the_dapr_doodle_api.json`：`ImageScaleToTotalPixels.megapixels` 从 `1.0` 降为 **`0.5`**
+  - 生成分辨率从 ~100 万像素降至 ~50 万像素（估算 ~638×826）
+  - 效果：RTX 5060 8GB 上 3 张图批量生成从 300s+OOM 优化到 **36s 全部成功**
+  - 图像文件大小从 ~946KB 降至 ~400KB
+- **环境配置固化与一键启动**
+  - `requirements.txt`：所有依赖版本号完全固定（含精确版本 + CUDA 索引修正为 cu128）
+  - `conda-environment.yml`：导出完整 conda 环境配置（channels + dependencies）
+  - `start.sh`：一键启动脚本（检查环境 → 启动 ComfyUI → 等待就绪 → 启动后端）
+  - `stop.sh`：一键停止脚本（清理 ComfyUI + 后端 + 临时文件）
 
 ### Agent 架构重构（✅ 核心已完成）
 - [x] Tool Registry（`BaseTool` + `ToolWrapper`）
@@ -211,7 +258,7 @@
 | 并发性能 | ✅ 已完成 | 异步批处理 + 并行轮询 + FP4 量化 |
 | 前端工程 | ✅ 已完成 | ES Module 组件化，therapist.html < 500 行 |
 | 数据持久化 | ✅ 已完成 | SQLite + 加密 + JSON 回退 |
-| 核心壁垒 | ⚠️ 部分完成 | 本地 ComfyUI 可用，缺云端 fallback |
+| 核心壁垒 | ✅ 已完成 | 本地 ComfyUI + FP4 量化 + 后台预热，零成本、低延迟、隐私不外流 |
 
 ---
 
@@ -220,5 +267,5 @@
 - **版本 0.x 期间**：API 和 schema 可能在不升级主版本号的情况下发生破坏性变更
 - **下一步优先级**：
   1. `app.js` 最终报告渲染去临床化（1 小时）
-  2. 云端 Provider 适配（2-3 天，大赛保底方案）
+  2. ~~云端 Provider 适配~~ → **冻结**，本地 ComfyUI 生成作为差异化优势
   3. 前端 Stepper UI + 历史 Plan 重放（2-3 天，可选）

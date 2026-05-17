@@ -1,19 +1,57 @@
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-python-multipart>=0.0.6
-pydantic>=2.5.0
-websockets>=12.0
-aiofiles>=23.2.0
-redis>=5.0.0
-torch==2.9.1 --index-url https://download.pytorch.org/whl/cu130
-torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cu130
-# xformers==0.0.33.post2 --index-url https://download.pytorch.org/whl/cu130
-transformers>=4.40.0
-accelerate
+# DAPR-Agent 后端依赖 — 版本完全固定
+# 生成日期: 2026-05-16
+# 最后更新: 2026-05-16 (添加 flash-linear-attention)
+# 基础环境: conda py312 (Python 3.12.13)
+# CUDA: 12.8 (cu128)
 
+# ── Web 框架 ──
+fastapi==0.136.1
+uvicorn[standard]==0.47.0
+python-multipart==0.0.28
+pydantic==2.13.4
+websockets==16.0
+
+# ── 异步 IO ──
+aiofiles==25.1.0
+aiohttp==3.13.5
+
+# ── 数据存储 ──
+redis==7.4.0
+SQLAlchemy==2.0.49
+alembic==1.18.4
+
+# ── 安全 ──
+cryptography==48.0.0
+
+# ── LLM / API ──
+openai==2.37.0
+transformers==5.8.1
+accelerate==1.13.0
+flash-linear-attention==0.5.0    # Qwen3.5 linear attention fast path
+causal-conv1d==1.6.2.post1       # 需从 GitHub Releases 手动下载对应 torch/cuda 版本的 wheel
+
+# ── PyTorch (CUDA 12.8) ──
+# 注意：RTX 50 系需 cu128，非 cu130
+torch==2.9.1 --index-url https://download.pytorch.org/whl/cu128
+torchvision==0.24.1 --index-url https://download.pytorch.org/whl/cu128
+
+# ── 扩散模型 (开发版，从源码安装) ──
 git+https://github.com/huggingface/diffusers
-cryptography>=42.0.0
-openai>=1.0.0
-aiohttp>=3.9.0
-sqlalchemy>=2.0.0
-alembic>=1.13.0
+
+# ── 结构化生成 ──
+lm-format-enforcer==0.11.3
+
+# ── ComfyUI 共享依赖 ──
+numpy==2.4.5
+Pillow==12.2.0
+psutil==7.2.2
+PyYAML==6.0.3
+scipy==1.17.1
+tqdm==4.67.3
+filelock==3.29.0
+einops==0.8.2
+safetensors==0.8.0rc0
+tokenizers==0.22.2
+sentencepiece==0.2.1
+requests==2.34.2
+huggingface_hub==1.15.0

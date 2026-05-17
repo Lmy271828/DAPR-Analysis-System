@@ -21,7 +21,7 @@ export function formatAnalysisResult(data) {
     // 检查数据有效性
     if (!data || typeof data !== 'object') {
         console.error('[formatAnalysisResult] Invalid data:', data);
-        return '<p style="color:#ff6b6b;">⚠️ 数据格式错误：' + JSON.stringify(data).slice(0, 200) + '</p>';
+        return '<p style="color:#B54A3F;">数据格式错误：' + JSON.stringify(data).slice(0, 200) + '</p>';
     }
     
     // 检查是否为Thinking模型（有think字段）
@@ -31,13 +31,13 @@ export function formatAnalysisResult(data) {
     if (isThinkingModel) {
         html += `
             <div style="margin-bottom:15px;">
-                <details style="background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;overflow:hidden;">
-                    <summary style="padding:12px 15px;cursor:pointer;background:#16213e;color:#ffc107;font-size:0.95rem;display:flex;align-items:center;gap:8px;">
+                <details style="background:#1C1A17;border:1px solid #2A2724;border-radius:6px;overflow:hidden;">
+                    <summary style="padding:12px 15px;cursor:pointer;background:#242220;color:#C49A6C;font-size:0.95rem;display:flex;align-items:center;gap:8px;">
                         <span>💭</span>
                         <span><strong>查看模型思考过程</strong></span>
                         <span style="margin-left:auto;font-size:0.8rem;color:#888;">点击展开 ▼</span>
                     </summary>
-                    <div style="padding:15px;border-top:1px solid #0f3460;">
+                    <div style="padding:15px;border-top:1px solid #2A2724;">
                         <pre style="margin:0;color:#aaa;font-size:0.85rem;line-height:1.6;white-space:pre-wrap;max-height:400px;overflow-y:auto;">${decodeEscapedChars(data.think)}</pre>
                     </div>
                 </details>
@@ -59,8 +59,8 @@ export function formatAnalysisResult(data) {
     if (drawingFeatures) {
         const df = drawingFeatures;
         html += `
-            <div style="background:#16213e;padding:12px;border-radius:6px;margin-bottom:10px;">
-                <p style="margin:0 0 10px 0;color:#e94560;font-size:1rem;"><strong>🎨 绘画特征分析</strong></p>
+            <div style="background:#242220;padding:12px;border-radius:6px;margin-bottom:10px;">
+                <p style="margin:0 0 10px 0;color:#B8704B;font-size:1rem;"><strong>绘画特征分析</strong></p>
                 ${(getField(df, 'person_size_and_position', '人物大小与位置')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">人物大小与位置</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(df, 'person_size_and_position', '人物大小与位置'))}</p></div>` : ''}
                 ${(getField(df, 'line_quality', '线条特征')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">线条特征</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(df, 'line_quality', '线条特征'))}</p></div>` : ''}
                 ${(getField(df, 'rain_representation', '雨的描绘')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">雨的描绘</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(df, 'rain_representation', '雨的描绘'))}</p></div>` : ''}
@@ -75,8 +75,8 @@ export function formatAnalysisResult(data) {
     if (processAnalysis) {
         const pa = processAnalysis;
         html += `
-            <div style="background:#16213e;padding:12px;border-radius:6px;margin-bottom:10px;">
-                <p style="margin:0 0 10px 0;color:#17a2b8;font-size:1rem;"><strong>🔄 绘画过程分析</strong></p>
+            <div style="background:#242220;padding:12px;border-radius:6px;margin-bottom:10px;">
+                <p style="margin:0 0 10px 0;color:#6B7D5A;font-size:1rem;"><strong>绘画过程分析</strong></p>
                 ${(getField(pa, 'drawing_sequence', '绘画顺序')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">绘画顺序</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(pa, 'drawing_sequence', '绘画顺序'))}</p></div>` : ''}
                 ${(getField(pa, 'erasures_and_modifications', '涂改情况')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">涂改情况</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(pa, 'erasures_and_modifications', '涂改情况'))}</p></div>` : ''}
                 ${(getField(pa, 'time_distribution', '耗时分布')) ? `<div><span style="color:#888;font-size:0.85rem;">耗时分布</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(pa, 'time_distribution', '耗时分布'))}</p></div>` : ''}
@@ -90,8 +90,8 @@ export function formatAnalysisResult(data) {
     if (expressionAnalysis) {
         const ea = expressionAnalysis;
         html += `
-            <div style="background:#16213e;padding:12px;border-radius:6px;margin-bottom:10px;">
-                <p style="margin:0 0 10px 0;color:#ffc107;font-size:1rem;"><strong>😊 表情分析</strong></p>
+            <div style="background:#242220;padding:12px;border-radius:6px;margin-bottom:10px;">
+                <p style="margin:0 0 10px 0;color:#C49A6C;font-size:1rem;"><strong>😊 表情分析</strong></p>
                 ${(getField(ea, 'emotional_state_during_drawing', '绘画时情绪状态')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">绘画时情绪状态</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(ea, 'emotional_state_during_drawing', '绘画时情绪状态'))}</p></div>` : ''}
                 ${(getField(ea, 'focus_changes', '专注度变化')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">专注度变化</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(ea, 'focus_changes', '专注度变化'))}</p></div>` : ''}
                 ${(getField(ea, 'stress_indicators', '压力指标')) ? `<div><span style="color:#888;font-size:0.85rem;">压力指标</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(ea, 'stress_indicators', '压力指标'))}</p></div>` : ''}
@@ -103,8 +103,8 @@ export function formatAnalysisResult(data) {
     const temporalCorr = getField(analysis, 'temporal_correlation', '时序关联');
     if (temporalCorr) {
         html += `
-            <div style="background:#0f3460;padding:12px;border-radius:6px;margin-bottom:10px;">
-                <p style="margin:0 0 8px 0;color:#9c27b0;font-size:1rem;"><strong>⏱️ 时序关联分析</strong></p>
+            <div style="background:#2A2724;padding:12px;border-radius:6px;margin-bottom:10px;">
+                <p style="margin:0 0 8px 0;color:#7A8B99;font-size:1rem;"><strong>时序关联分析</strong></p>
                 <p style="margin:0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(temporalCorr)}</p>
             </div>
         `;
@@ -116,12 +116,12 @@ export function formatAnalysisResult(data) {
                                      getField(data, 'hypotheses', '猜想');
     if (psychologicalGuesstimates && Array.isArray(psychologicalGuesstimates)) {
         html += `
-            <div style="background:#0f3460;padding:12px;border-radius:6px;margin-bottom:10px;">
-                <p style="margin:0 0 10px 0;color:#e94560;font-size:1rem;"><strong>💡 心理状态猜想</strong></p>
+            <div style="background:#2A2724;padding:12px;border-radius:6px;margin-bottom:10px;">
+                <p style="margin:0 0 10px 0;color:#B8704B;font-size:1rem;"><strong>💡 心理状态猜想</strong></p>
                 <ol style="margin:0;padding-left:20px;">
                     ${psychologicalGuesstimates.map((h, i) => `
                         <li style="margin:8px 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">
-                            <span style="display:inline-block;background:#e94560;color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin-right:8px;">${i+1}</span>
+                            <span style="display:inline-block;background:#B8704B;color:white;padding:2px 8px;border-radius:4px;font-size:0.75rem;margin-right:8px;">${i+1}</span>
                             ${decodeEscapedChars(h)}
                         </li>
                     `).join('')}
@@ -136,8 +136,8 @@ export function formatAnalysisResult(data) {
                             getField(data, 'questionsToAsk', '提问');
     if (questionsForUser && Array.isArray(questionsForUser)) {
         html += `
-            <div style="background:#16213e;padding:12px;border-radius:6px;margin-bottom:10px;">
-                <p style="margin:0 0 10px 0;color:#17a2b8;font-size:1rem;"><strong>❓ 建议询问的问题</strong></p>
+            <div style="background:#242220;padding:12px;border-radius:6px;margin-bottom:10px;">
+                <p style="margin:0 0 10px 0;color:#6B7D5A;font-size:1rem;"><strong>❓ 建议询问的问题</strong></p>
                 <ol style="margin:0;padding-left:20px;">
                     ${questionsForUser.map((q, i) => `
                         <li style="margin:8px 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">
@@ -155,8 +155,8 @@ export function formatAnalysisResult(data) {
     if (userInfoRequest) {
         const uir = userInfoRequest;
         html += `
-            <div style="background:#16213e;padding:12px;border-radius:6px;margin-bottom:10px;">
-                <p style="margin:0 0 8px 0;color:#28a745;font-size:1rem;"><strong>👤 建议收集的基本信息</strong></p>
+            <div style="background:#242220;padding:12px;border-radius:6px;margin-bottom:10px;">
+                <p style="margin:0 0 8px 0;color:#6B7D5A;font-size:1rem;"><strong>👤 建议收集的基本信息</strong></p>
                 <div style="display:flex;gap:15px;">
                     ${(getField(uir, 'age_range', '年龄段')) ? `<div><span style="color:#888;font-size:0.85rem;">年龄段</span><p style="margin:3px 0 0 0;color:#ddd;">${decodeEscapedChars(getField(uir, 'age_range', '年龄段'))}</p></div>` : ''}
                     ${(getField(uir, 'gender', '性别')) ? `<div><span style="color:#888;font-size:0.85rem;">性别</span><p style="margin:3px 0 0 0;color:#ddd;">${decodeEscapedChars(getField(uir, 'gender', '性别'))}</p></div>` : ''}
@@ -169,10 +169,10 @@ export function formatAnalysisResult(data) {
     if (!html) {
         console.error('[formatAnalysisResult] No content generated for data:', data);
         return `
-            <p style="color:#ff6b6b;">⚠️ 无法解析分析内容</p>
+            <p style="color:#B54A3F;">无法解析分析内容</p>
             <details style="margin-top:10px;">
                 <summary style="color:#888;cursor:pointer;">查看原始数据</summary>
-                <pre style="background:#1a1a2e;padding:10px;border-radius:4px;color:#aaa;font-size:0.8rem;overflow-x:auto;">${JSON.stringify(data, null, 2).slice(0, 2000)}</pre>
+                <pre style="background:#1C1A17;padding:10px;border-radius:4px;color:#aaa;font-size:0.8rem;overflow-x:auto;">${JSON.stringify(data, null, 2).slice(0, 2000)}</pre>
             </details>
         `;
     }
@@ -223,7 +223,7 @@ export function formatLogContent(log) {
                             
                             sections.push(`
                                 <div class="log-section">
-                                    <div class="log-section-title">🧠 DAPR分析结论</div>
+                                    <div class="log-section-title">DAPR观察笔记</div>
                                     <div class="log-content readable">
                                         ${formatAnalysisResult(resultData)}
                                     </div>
@@ -234,7 +234,7 @@ export function formatLogContent(log) {
                             const summary = decodedRaw.slice(0, 800);
                             sections.push(`
                                 <div class="log-section">
-                                    <div class="log-section-title">🧠 DAPR分析结论</div>
+                                    <div class="log-section-title">DAPR观察笔记</div>
                                     <div class="log-content readable" style="white-space:pre-wrap;line-height:1.6;">
                                         ${summary}${decodedRaw.length > 800 ? '...' : ''}
                                     </div>
@@ -246,7 +246,7 @@ export function formatLogContent(log) {
                         const summary = decodedRaw.slice(0, 800);
                         sections.push(`
                             <div class="log-section">
-                                <div class="log-section-title">🧠 DAPR分析结论</div>
+                                <div class="log-section-title">DAPR观察笔记</div>
                                 <div class="log-content readable" style="white-space:pre-wrap;line-height:1.6;">
                                     ${summary}${decodedRaw.length > 800 ? '...' : ''}
                                 </div>
@@ -259,7 +259,7 @@ export function formatLogContent(log) {
                     
                     sections.push(`
                         <div class="log-section">
-                            <div class="log-section-title">🧠 DAPR分析结论</div>
+                            <div class="log-section-title">DAPR观察笔记</div>
                             <div class="log-content readable">
                                 ${formattedResult}
                             </div>
@@ -286,7 +286,7 @@ export function formatLogContent(log) {
                 
                 sections.push(`
                     <div class="log-section">
-                        <div class="log-section-title">🧠 DAPR分析结论（流式）</div>
+                        <div class="log-section-title">DAPR观察笔记（流式）</div>
                         <div class="log-content readable">
                             ${formattedResult}
                         </div>
@@ -301,13 +301,13 @@ export function formatLogContent(log) {
             if (log.data && log.data.answers) {
                 sections.push(`
                     <div class="log-section">
-                        <div class="log-section-title">💬 受试者回答</div>
+                        <div class="log-section-title">创作者回答</div>
                         <div class="log-content readable">
                             ${log.data.questions ? `
                                 ${log.data.questions.map((q, i) => `
-                                    <div style="margin:10px 0;padding:10px;background:#0f3460;border-radius:4px;">
+                                    <div style="margin:10px 0;padding:10px;background:#2A2724;border-radius:4px;">
                                         <p style="white-space:pre-wrap;line-height:1.4;"><strong>Q${i+1}: ${decodeEscapedChars(q)}</strong></p>
-                                        <p style="color:#e94560;margin-top:5px;white-space:pre-wrap;line-height:1.4;">A: ${decodeEscapedChars(log.data.answers[i]) || '(未回答)'}</p>
+                                        <p style="color:#B8704B;margin-top:5px;white-space:pre-wrap;line-height:1.4;">A: ${decodeEscapedChars(log.data.answers[i]) || '(未回答)'}</p>
                                     </div>
                                 `).join('')}
                             ` : `
@@ -325,11 +325,11 @@ export function formatLogContent(log) {
             if (log.llm_output && log.llm_output.variations) {
                 sections.push(`
                     <div class="log-section">
-                        <div class="log-section-title">🎨 编辑指令生成</div>
+                        <div class="log-section-title">编辑指令生成</div>
                         <div class="log-content readable">
                             <p><strong>生成了 ${log.llm_output.variations.length} 个图像变体：</strong></p>
                             ${log.llm_output.variations.map((v, i) => `
-                                <div style="margin: 10px 0; padding: 10px; background: #0f3460; border-radius: 4px;">
+                                <div style="margin: 10px 0; padding: 10px; background: #2A2724; border-radius: 4px;">
                                     <p><strong>变体 ${i+1}: ${v.name}</strong></p>
                                     <p>描述：${v.description}</p>
                                     <p style="color: #aaa; font-size: 0.85rem; margin-top: 5px;">
@@ -350,7 +350,7 @@ export function formatLogContent(log) {
             if (log.flux2_output && log.flux2_output.generated_images) {
                 sections.push(`
                     <div class="log-section">
-                        <div class="log-section-title">🖼️ 图像生成结果</div>
+                        <div class="log-section-title">图像生成结果</div>
                         <div class="log-content readable">
                             <p>成功生成 ${log.flux2_output.generated_images.length} 张图像</p>
                             ${log.flux2_output.generated_images.map(img => `
@@ -389,11 +389,11 @@ export function formatLogContent(log) {
                 
                 sections.push(`
                     <div class="log-section">
-                        <div class="log-section-title">🎨 创作回顾</div>
+                        <div class="log-section-title">创作回顾</div>
                         <div class="log-content readable">
                             ${r.summary ? `
                                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                                    <p style="margin:0;color:white;font-size:1.05rem;"><strong>💬 整体感受</strong></p>
+                                    <p style="margin:0;color:white;font-size:1.05rem;"><strong>整体感受</strong></p>
                                     <p style="margin:10px 0 0 0;color:white;line-height:1.6;white-space:pre-wrap;">${decodeEscapedChars(r.summary)}</p>
                                 </div>
                             ` : ''}
@@ -438,7 +438,7 @@ export function formatLogContent(log) {
                             <p><strong>查看顺序：</strong>${(sb.viewOrder || []).join(' → ')}</p>
                             <p><strong>总查看数：</strong>${finalSel.totalViews || sb.viewOrder?.length || 0}</p>
                             ${sb.hesitationIndicators?.length > 0 ? `
-                                <p><strong>⚠️ 犹豫行为：</strong></p>
+                                <p><strong>犹豫行为：</strong></p>
                                 <ul>
                                     ${sb.hesitationIndicators.map(h => `<li>${h.description || h.type}</li>`).join('')}
                                 </ul>
@@ -449,39 +449,7 @@ export function formatLogContent(log) {
             }
             break;
             
-        case 'generate_instructions':
-            if (log.llm_output && log.llm_output.variations) {
-                sections.push(`
-                    <div class="log-section">
-                        <div class="log-section-title">🎨 图像变体生成</div>
-                        <div class="log-content readable">
-                            <p>生成了 ${log.llm_output.variations.length} 个变体：</p>
-                            ${log.llm_output.variations.map((v, i) => `
-                                <div style="margin: 10px 0; padding: 10px; background: #0f3460; border-radius: 4px;">
-                                    <p><strong>变体 ${i+1}: ${v.name}</strong></p>
-                                    <p style="color: #aaa;">${v.description}</p>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `);
-            }
-            break;
-            
-        case 'final_questions_generated':
-            if (log.llm_output && log.llm_output.questions) {
-                sections.push(`
-                    <div class="log-section">
-                        <div class="log-section-title">❓ 深入问题</div>
-                        <div class="log-content readable">
-                            <ol>
-                                ${log.llm_output.questions.map(q => `<li>${q}</li>`).join('')}
-                            </ol>
-                        </div>
-                    </div>
-                `);
-            }
-            break;
+
             
         default:
             // 默认情况：智能格式化显示
@@ -510,7 +478,7 @@ export function formatLogContent(log) {
                         // 显示原始文本的摘要（前500字符）
                         const summary = output.raw_response.slice(0, 500);
                         content = `
-                            <div style="background:#1a1a2e;padding:12px;border-radius:6px;margin-bottom:10px;">
+                            <div style="background:#1C1A17;padding:12px;border-radius:6px;margin-bottom:10px;">
                                 <p style="margin:0;color:#ddd;line-height:1.6;white-space:pre-wrap;">${summary}${output.raw_response.length > 500 ? '...' : ''}</p>
                             </div>
                         `;
@@ -538,7 +506,7 @@ export function formatLogContent(log) {
                     content = `
                         <p style="color:#888;font-size:0.85rem;">暂无可预览内容</p>
                         <details style="margin-top:10px;">
-                            <summary style="cursor:pointer;color:#e94560;font-size:0.85rem;">查看原始数据</summary>
+                            <summary style="cursor:pointer;color:#B8704B;font-size:0.85rem;">查看原始数据</summary>
                             <pre style="margin-top:10px;font-size:0.75rem;opacity:0.7;max-height:300px;overflow:auto;">${JSON.stringify(output, null, 2)}</pre>
                         </details>
                     `;
@@ -565,7 +533,7 @@ export function formatLogContent(log) {
                         dataContent += `
                             <details style="margin:5px 0;">
                                 <summary style="cursor:pointer;color:#aaa;">${key}</summary>
-                                <pre style="font-size:0.8rem;margin:5px 0;padding:5px;background:#0f3460;border-radius:4px;">${JSON.stringify(value, null, 2)}</pre>
+                                <pre style="font-size:0.8rem;margin:5px 0;padding:5px;background:#2A2724;border-radius:4px;">${JSON.stringify(value, null, 2)}</pre>
                             </details>
                         `;
                     }
@@ -573,7 +541,7 @@ export function formatLogContent(log) {
                 if (dataContent) {
                     sections.push(`
                         <div class="log-section">
-                            <div class="log-section-title">📊 ${log.stage || '数据'}</div>
+                            <div class="log-section-title">${log.stage || '数据'}</div>
                             <div class="log-content readable">${dataContent}</div>
                         </div>
                     `);

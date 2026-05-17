@@ -16,12 +16,6 @@ function bindEvents() {
     });
 }
 
-// 初始化
-document.addEventListener('DOMContentLoaded', () => {
-    connectWebSocket();
-    bindEvents();
-});
-
 // 设置 WebSocket 消息处理器
 setMessageHandlers({
     onSessionsList: updateSessionList,
@@ -31,11 +25,17 @@ setMessageHandlers({
 // 定时刷新会话列表
 setInterval(refreshSessions, 5000);
 
-// 点击弹窗外部关闭
-document.getElementById('history-modal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeHistoryModal();
-    }
+// 初始化
+document.addEventListener('DOMContentLoaded', () => {
+    connectWebSocket();
+    bindEvents();
+    
+    // 点击弹窗外部关闭
+    document.getElementById('history-modal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeHistoryModal();
+        }
+    });
 });
 
 window.addEventListener('beforeunload', () => {
