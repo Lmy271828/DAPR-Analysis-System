@@ -23,7 +23,7 @@ export function handleLogMessage(log) {
     }
 }
 
-export function handleStreamStart(log) {
+function handleStreamStart(log) {
     const sessionId = log.session_id;
     console.log(`[Stream] 开始流式分析: ${sessionId}`);
 
@@ -38,7 +38,7 @@ export function handleStreamStart(log) {
     }
 }
 
-export function handleStreamChunk(log) {
+function handleStreamChunk(log) {
     const sessionId = log.session_id;
     const output = log.llm_output || {};
     const chunk = output.chunk || '';
@@ -56,7 +56,7 @@ export function handleStreamChunk(log) {
     updateStreamDisplay(streamEntry.element, fullText, speed, output.token_count || fullText.length);
 }
 
-export function handleStreamComplete(log) {
+function handleStreamComplete(log) {
     const sessionId = log.session_id;
     const output = log.llm_output || {};
 
@@ -71,7 +71,7 @@ export function handleStreamComplete(log) {
     addLog(log);
 }
 
-export function createStreamLogElement(log) {
+function createStreamLogElement(log) {
     const container = document.getElementById('log-container');
 
     const entry = document.createElement('div');
@@ -106,7 +106,7 @@ export function createStreamLogElement(log) {
     return entry;
 }
 
-export function updateStreamDisplay(element, text, speed, tokenCount) {
+function updateStreamDisplay(element, text, speed, tokenCount) {
     if (!element) return;
 
     const contentEl = element.querySelector('.stream-content');
@@ -122,7 +122,7 @@ export function updateStreamDisplay(element, text, speed, tokenCount) {
     if (tokenEl) tokenEl.textContent = tokenCount;
 }
 
-export function markStreamComplete(element, output) {
+function markStreamComplete(element, output) {
     if (!element) return;
 
     const stageEl = element.querySelector('.log-stage');
@@ -159,7 +159,10 @@ export function renderLogs() {
         filteredLogs = filteredLogs.filter(log => log.session_id === state.selectedSession);
     }
 
-    if (filteredLogs.length === 0) {
+    // 保留正在流式传输或已完成的流式 DOM 元素，避免摧毁实时更新
+    const streamingElements = Array.from(container.querySelectorAll('.log-entry.streaming, .log-entry.stream-complete'));
+
+    if (filteredLogs.length === 0 && streamingElements.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-state-icon"></div>
@@ -169,7 +172,12 @@ export function renderLogs() {
         return;
     }
 
-    container.innerHTML = filteredLogs.map(log => `
+    // 移除旧的非流式条目，保留流式元素
+    container.querySelectorAll('.log-entry:not(.streaming):not(.stream-complete)').forEach(el => el.remove());
+
+    // 生成非流式日志条目并插入到容器（在流式元素之后）
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = filteredLogs.map(log => `
         <div class="log-entry">
             <div class="log-header">
                 <div>
@@ -181,6 +189,10 @@ export function renderLogs() {
             ${formatLogContent(log)}
         </div>
     `).join('');
+
+    Array.from(tempDiv.children).forEach(child => {
+        container.appendChild(child);
+    });
 }
 
 export function clearLogs() {

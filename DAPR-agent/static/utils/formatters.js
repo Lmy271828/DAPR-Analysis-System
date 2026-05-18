@@ -71,32 +71,58 @@ export function formatAnalysisResult(data) {
     
     // 过程分析（支持中英文键名）
     const processAnalysis = getField(analysis, 'process_analysis', '过程分析') ||
-                           getField(analysis, 'processAnalysis', '绘画过程分析');
+                           getField(analysis, 'processAnalysis', '绘画过程分析') ||
+                           getField(analysis, 'process_observation', '绘画过程观察');
     if (processAnalysis) {
         const pa = processAnalysis;
-        html += `
-            <div style="background:#242220;padding:12px;border-radius:6px;margin-bottom:10px;">
-                <p style="margin:0 0 10px 0;color:#6B7D5A;font-size:1rem;"><strong>绘画过程分析</strong></p>
-                ${(getField(pa, 'drawing_sequence', '绘画顺序')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">绘画顺序</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(pa, 'drawing_sequence', '绘画顺序'))}</p></div>` : ''}
-                ${(getField(pa, 'erasures_and_modifications', '涂改情况')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">涂改情况</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(pa, 'erasures_and_modifications', '涂改情况'))}</p></div>` : ''}
-                ${(getField(pa, 'time_distribution', '耗时分布')) ? `<div><span style="color:#888;font-size:0.85rem;">耗时分布</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(pa, 'time_distribution', '耗时分布'))}</p></div>` : ''}
-            </div>
-        `;
+        // 支持对象形式和数组形式
+        if (Array.isArray(pa)) {
+            html += `
+                <div style="background:#242220;padding:12px;border-radius:6px;margin-bottom:10px;">
+                    <p style="margin:0 0 10px 0;color:#6B7D5A;font-size:1rem;"><strong>绘画过程观察</strong></p>
+                    <ul style="margin:0;padding-left:18px;">
+                        ${pa.map(item => `<li style="margin:6px 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(item)}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        } else {
+            html += `
+                <div style="background:#242220;padding:12px;border-radius:6px;margin-bottom:10px;">
+                    <p style="margin:0 0 10px 0;color:#6B7D5A;font-size:1rem;"><strong>绘画过程分析</strong></p>
+                    ${(getField(pa, 'drawing_sequence', '绘画顺序')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">绘画顺序</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(pa, 'drawing_sequence', '绘画顺序'))}</p></div>` : ''}
+                    ${(getField(pa, 'erasures_and_modifications', '涂改情况')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">涂改情况</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(pa, 'erasures_and_modifications', '涂改情况'))}</p></div>` : ''}
+                    ${(getField(pa, 'time_distribution', '耗时分布')) ? `<div><span style="color:#888;font-size:0.85rem;">耗时分布</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(pa, 'time_distribution', '耗时分布'))}</p></div>` : ''}
+                </div>
+            `;
+        }
     }
-    
+
     // 表情分析（支持中英文键名）
     const expressionAnalysis = getField(analysis, 'expression_analysis', '表情分析') ||
-                              getField(analysis, 'expressionAnalysis', '绘画表情分析');
+                              getField(analysis, 'expressionAnalysis', '绘画表情分析') ||
+                              getField(analysis, 'expression_observation', '表情观察');
     if (expressionAnalysis) {
         const ea = expressionAnalysis;
-        html += `
-            <div style="background:#242220;padding:12px;border-radius:6px;margin-bottom:10px;">
-                <p style="margin:0 0 10px 0;color:#C49A6C;font-size:1rem;"><strong>😊 表情分析</strong></p>
-                ${(getField(ea, 'emotional_state_during_drawing', '绘画时情绪状态')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">绘画时情绪状态</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(ea, 'emotional_state_during_drawing', '绘画时情绪状态'))}</p></div>` : ''}
-                ${(getField(ea, 'focus_changes', '专注度变化')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">专注度变化</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(ea, 'focus_changes', '专注度变化'))}</p></div>` : ''}
-                ${(getField(ea, 'stress_indicators', '压力指标')) ? `<div><span style="color:#888;font-size:0.85rem;">压力指标</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(ea, 'stress_indicators', '压力指标'))}</p></div>` : ''}
-            </div>
-        `;
+        // 支持对象形式和数组形式
+        if (Array.isArray(ea)) {
+            html += `
+                <div style="background:#242220;padding:12px;border-radius:6px;margin-bottom:10px;">
+                    <p style="margin:0 0 10px 0;color:#C49A6C;font-size:1rem;"><strong>😊 表情观察</strong></p>
+                    <ul style="margin:0;padding-left:18px;">
+                        ${ea.map(item => `<li style="margin:6px 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(item)}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        } else {
+            html += `
+                <div style="background:#242220;padding:12px;border-radius:6px;margin-bottom:10px;">
+                    <p style="margin:0 0 10px 0;color:#C49A6C;font-size:1rem;"><strong>😊 表情分析</strong></p>
+                    ${(getField(ea, 'emotional_state_during_drawing', '绘画时情绪状态')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">绘画时情绪状态</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(ea, 'emotional_state_during_drawing', '绘画时情绪状态'))}</p></div>` : ''}
+                    ${(getField(ea, 'focus_changes', '专注度变化')) ? `<div style="margin-bottom:8px;"><span style="color:#888;font-size:0.85rem;">专注度变化</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(ea, 'focus_changes', '专注度变化'))}</p></div>` : ''}
+                    ${(getField(ea, 'stress_indicators', '压力指标')) ? `<div><span style="color:#888;font-size:0.85rem;">压力指标</span><p style="margin:3px 0 0 0;color:#ddd;font-size:0.9rem;line-height:1.5;white-space:pre-wrap;">${decodeEscapedChars(getField(ea, 'stress_indicators', '压力指标'))}</p></div>` : ''}
+                </div>
+            `;
+        }
     }
     
     // 时序关联
@@ -180,83 +206,71 @@ export function formatAnalysisResult(data) {
     return html;
 }
 
+// 辅助函数：从 raw_response 提取并格式化分析内容
+function formatRawResponse(rawResponse, title = 'DAPR观察笔记', maxLen = 800) {
+    if (!rawResponse || typeof rawResponse !== 'string') return null;
+
+    const decodedRaw = decodeEscapedChars(rawResponse);
+    try {
+        const jsonMatch = decodedRaw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+
+            // 递归解码 parsed 对象中的所有字符串值
+            function deepDecode(obj) {
+                if (typeof obj === 'string') {
+                    return decodeEscapedChars(obj);
+                } else if (Array.isArray(obj)) {
+                    return obj.map(deepDecode);
+                } else if (typeof obj === 'object' && obj !== null) {
+                    const result = {};
+                    for (const [key, value] of Object.entries(obj)) {
+                        result[key] = deepDecode(value);
+                    }
+                    return result;
+                }
+                return obj;
+            }
+
+            const fullyDecoded = deepDecode(parsed);
+            const resultData = fullyDecoded.analysis ? fullyDecoded : { analysis: fullyDecoded };
+            return `
+                <div class="log-section">
+                    <div class="log-section-title">${title}</div>
+                    <div class="log-content readable">
+                        ${formatAnalysisResult(resultData)}
+                    </div>
+                </div>
+            `;
+        }
+    } catch (e) {
+        // 解析失败，回退到文本摘要
+    }
+
+    const summary = decodedRaw.slice(0, maxLen);
+    return `
+        <div class="log-section">
+            <div class="log-section-title">${title}</div>
+            <div class="log-content readable" style="white-space:pre-wrap;line-height:1.6;">
+                ${summary}${decodedRaw.length > maxLen ? '...' : ''}
+            </div>
+        </div>
+    `;
+}
+
 // 格式化日志内容
 export function formatLogContent(log) {
     const sections = [];
-    
+
     // 根据阶段格式化输出
     switch (log.stage) {
         case 'initial_analysis':
             if (log.llm_output) {
                 const output = log.llm_output;
-                // 检查是否有 raw_response（LLM返回的非结构化文本）
                 if (output.raw_response) {
-                    // 先解码 raw_response 本身
-                    const decodedRaw = decodeEscapedChars(output.raw_response);
-                    
-                    // 尝试从 decodedRaw 提取 JSON
-                    try {
-                        const jsonMatch = decodedRaw.match(/\{[\s\S]*\}/);
-                        if (jsonMatch) {
-                            const parsed = JSON.parse(jsonMatch[0]);
-                            
-                            // 递归解码 parsed 对象中的所有字符串值
-                            function deepDecode(obj) {
-                                if (typeof obj === 'string') {
-                                    return decodeEscapedChars(obj);
-                                } else if (Array.isArray(obj)) {
-                                    return obj.map(deepDecode);
-                                } else if (typeof obj === 'object' && obj !== null) {
-                                    const result = {};
-                                    for (const [key, value] of Object.entries(obj)) {
-                                        result[key] = deepDecode(value);
-                                    }
-                                    return result;
-                                }
-                                return obj;
-                            }
-                            
-                            const fullyDecoded = deepDecode(parsed);
-                            
-                            // Thinking模型格式：{think, analysis}；Instruct模型格式：{analysis} 或扁平结构
-                            const resultData = fullyDecoded.analysis ? fullyDecoded : { analysis: fullyDecoded };
-                            
-                            sections.push(`
-                                <div class="log-section">
-                                    <div class="log-section-title">DAPR观察笔记</div>
-                                    <div class="log-content readable">
-                                        ${formatAnalysisResult(resultData)}
-                                    </div>
-                                </div>
-                            `);
-                        } else {
-                            // 显示文本摘要
-                            const summary = decodedRaw.slice(0, 800);
-                            sections.push(`
-                                <div class="log-section">
-                                    <div class="log-section-title">DAPR观察笔记</div>
-                                    <div class="log-content readable" style="white-space:pre-wrap;line-height:1.6;">
-                                        ${summary}${decodedRaw.length > 800 ? '...' : ''}
-                                    </div>
-                                </div>
-                            `);
-                        }
-                    } catch (e) {
-                        // 显示原始文本
-                        const summary = decodedRaw.slice(0, 800);
-                        sections.push(`
-                            <div class="log-section">
-                                <div class="log-section-title">DAPR观察笔记</div>
-                                <div class="log-content readable" style="white-space:pre-wrap;line-height:1.6;">
-                                    ${summary}${decodedRaw.length > 800 ? '...' : ''}
-                                </div>
-                            </div>
-                        `);
-                    }
+                    sections.push(formatRawResponse(output.raw_response, 'DAPR观察笔记', 800));
                 } else {
-                    // 使用结构化数据 - 使用 formatAnalysisResult 统一处理
                     const formattedResult = formatAnalysisResult(output);
-                    
                     sections.push(`
                         <div class="log-section">
                             <div class="log-section-title">DAPR观察笔记</div>
@@ -273,17 +287,13 @@ export function formatLogContent(log) {
             // 流式分析完成，显示最终结果（支持Thinking模型）
             if (log.llm_output && log.llm_output.result) {
                 const result = log.llm_output.result;
-                
-                // 准备显示的数据 - 对于Thinking模型，传递整个result（包含think字段）；否则传递analysis或result
-                // formatAnalysisResult 函数内部会处理 think 字段的显示，不需要在这里重复处理
-                const displayData = result.think ? result : (result.analysis || result);
-                
+
+                // 传递完整 result，让 formatAnalysisResult 处理 think/analysis 结构
+                // 同时保留顶层的 hypotheses 和 questions
                 console.log('[Debug] analysis_stream_complete result:', result);
-                console.log('[Debug] displayData:', displayData);
-                
-                // formatAnalysisResult 已经包含了思考过程的显示，直接调用即可
-                const formattedResult = formatAnalysisResult(displayData);
-                
+
+                const formattedResult = formatAnalysisResult(result);
+
                 sections.push(`
                     <div class="log-section">
                         <div class="log-section-title">DAPR观察笔记（流式）</div>
@@ -456,35 +466,13 @@ export function formatLogContent(log) {
             if (log.llm_output && Object.keys(log.llm_output).length > 0) {
                 const output = log.llm_output;
                 let content = '';
-                let parsedFromRaw = null;
-                
-                // 检查是否有 raw_response 字段（LLM返回的原始文本）
+
+                // 优先从 raw_response 提取（复用统一逻辑）
                 if (output.raw_response && typeof output.raw_response === 'string') {
-                    // 尝试从 raw_response 中提取 JSON
-                    try {
-                        const jsonMatch = output.raw_response.match(/\{[\s\S]*\}/);
-                        if (jsonMatch) {
-                            parsedFromRaw = JSON.parse(jsonMatch[0]);
-                        }
-                    } catch (e) {
-                        // 解析失败，使用原始文本
-                        parsedFromRaw = null;
-                    }
-                    
-                    // 如果解析成功，使用解析后的数据
-                    if (parsedFromRaw) {
-                        content = formatAnalysisResult(parsedFromRaw);
-                    } else {
-                        // 显示原始文本的摘要（前500字符）
-                        const summary = output.raw_response.slice(0, 500);
-                        content = `
-                            <div style="background:#1C1A17;padding:12px;border-radius:6px;margin-bottom:10px;">
-                                <p style="margin:0;color:#ddd;line-height:1.6;white-space:pre-wrap;">${summary}${output.raw_response.length > 500 ? '...' : ''}</p>
-                            </div>
-                        `;
-                    }
+                    const formatted = formatRawResponse(output.raw_response, log.stage || '分析结果', 500);
+                    if (formatted) content = formatted;
                 }
-                
+
                 // 如果没有从 raw_response 获取到内容，尝试其他字段
                 if (!content) {
                     if (output.summary || output.analysis_summary) {
@@ -500,7 +488,7 @@ export function formatLogContent(log) {
                         content += `<p><strong>变体：</strong>${output.variations.map(v => v.name).join('、')}</p>`;
                     }
                 }
-                
+
                 // 如果还是没内容，显示折叠的原始数据
                 if (!content) {
                     content = `
@@ -511,7 +499,7 @@ export function formatLogContent(log) {
                         </details>
                     `;
                 }
-                
+
                 sections.push(`
                     <div class="log-section">
                         <div class="log-section-title">📄 ${log.stage || '分析结果'}</div>

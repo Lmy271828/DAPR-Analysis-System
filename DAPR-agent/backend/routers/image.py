@@ -196,15 +196,7 @@ async def final_analysis_task(session_id: str):
     llm = create_cloud_llm_service(session_id)
     
     # 找到选中的图像
-    selected_image = None
-    for img in session.generated_images:
-        if str(img.get("id")) == session.selected_image_id:
-            selected_image = img
-            break
-    
-    if not selected_image:
-        selected_image = session.generated_images[0] if session.generated_images else {}
-    
+    selected_image = _find_selected_image(session)
     print(f"[Final Analysis] 用户选择图像: {selected_image.get('name', 'unknown')}")
     
     # 根据选择、选择行为数据和访谈对话历史生成深入问题（纯文字，无图像上传）
@@ -260,11 +252,7 @@ async def generate_final_report_task(session_id: str):
     llm = create_cloud_llm_service(session_id)
     
     # 找到选中的图像
-    selected_image = None
-    for img in session.generated_images:
-        if str(img.get("id")) == session.selected_image_id:
-            selected_image = img
-            break
+    selected_image = _find_selected_image(session)
     
     # 从 conversation manager 获取完整的对话历史（包含分析结果）
     conversation_history = llm.conversation.get_messages(include_summary=True)

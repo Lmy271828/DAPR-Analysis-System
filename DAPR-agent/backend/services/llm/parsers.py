@@ -3,7 +3,7 @@ JSON 解析、验证与标准化工具函数
 """
 import json
 import re
-from typing import Dict, List, Tuple, Any
+from typing import Dict, Tuple, Any
 
 
 def clean_json_text(response: str) -> str:
@@ -152,11 +152,6 @@ def parse_video_analysis_response(response: str) -> Dict[str, Any]:
         "expression_observation": ["模型未返回可解析的表情分析结果"],
         "process_observation": ["模型未返回可解析的过程分析结果"]
     })
-
-
-# NOTE: 旧版多模态/完整分析解析函数（validate_multimodal_analysis_contract、
-# parse_analysis_response_with_contract 等）已于 2026-05-18 移除。
-# 当前使用 parse_image_analysis_response + parse_video_analysis_response 分 batch 解析。
 
 
 def validate_final_report_contract(payload: Dict[str, Any]) -> Tuple[bool, str]:

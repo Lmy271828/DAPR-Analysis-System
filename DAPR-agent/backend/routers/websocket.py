@@ -29,6 +29,13 @@ async def subject_websocket(websocket: WebSocket, session_id: str):
             
     except WebSocketDisconnect:
         manager.disconnect_subject(session_id)
+    except RuntimeError as e:
+        # 服务器端主动关闭旧连接时可能出现的边界异常（如心跳超时误杀）
+        print(f"[WebSocket] 受试者连接异常断开: session={session_id[:8]}..., err={e}")
+        manager.disconnect_subject(session_id)
+    except Exception as e:
+        print(f"[WebSocket] 受试者连接未预期异常: session={session_id[:8]}..., err={e}")
+        manager.disconnect_subject(session_id)
 
 
 @router.websocket("/ws/therapist")
@@ -64,4 +71,10 @@ async def therapist_websocket(websocket: WebSocket):
                 })
                 
     except WebSocketDisconnect:
+        manager.disconnect_therapist(client_id)
+    except RuntimeError as e:
+        print(f"[WebSocket] 咨询师连接异常断开: client={client_id[:8]}..., err={e}")
+        manager.disconnect_therapist(client_id)
+    except Exception as e:
+        print(f"[WebSocket] 咨询师连接未预期异常: client={client_id[:8]}..., err={e}")
         manager.disconnect_therapist(client_id)

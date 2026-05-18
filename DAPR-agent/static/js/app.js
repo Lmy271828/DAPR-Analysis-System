@@ -143,7 +143,7 @@ async function createSession() {
                 const checkResp = await fetch(`/api/session/${savedId}`);
                 if (checkResp.ok) {
                     const sessionData = await checkResp.json();
-                    const resumableStatuses = ['analyzing', 'conversing', 'questioning', 'generating', 'selecting', 'final_analysis', 'final_questions'];
+                    const resumableStatuses = ['analyzing', 'conversing', 'questioning', 'generating', 'selecting', 'final_analysis', 'final_questions', 'completed'];
                     if (resumableStatuses.includes(sessionData.status)) {
                         console.log(`[Session] 恢复旧会话: ${savedId}, 状态: ${sessionData.status}`);
                         state.sessionId = savedId;

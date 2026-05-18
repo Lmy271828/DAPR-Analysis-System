@@ -18,6 +18,44 @@ from dependencies import manager, orchestrator, interview_agents
 router = APIRouter(prefix="/api/session")
 
 
+# ── 模块级常量 ──
+AGE_GROUP_MAP = {
+    "under_7": 5, "7_12": 10, "13_18": 15, "19_59": 30, "60_plus": 70,
+    "child_under_7": 5, "child_7_9": 8, "child_10_12": 11,
+    "teen_13_15": 14, "teen_16_18": 17,
+    "adult_19_35": 27, "adult_36_59": 47,
+    "senior_60_plus": 65,
+}
+
+
+def _strip_base64_prefix(data: str) -> str:
+    """移除 base64 Data URI 前缀"""
+    if ',' in data:
+        return data.split(',')[1]
+    return data
+
+
+def _probe_video_duration(path: str, label: str = "视频") -> None:
+    """使用 ffprobe 验证视频时长并打印日志"""
+    try:
+        result = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries',
+             'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', str(path)],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            duration_str = result.stdout.strip()
+            if duration_str.upper() != 'N/A':
+                duration = float(duration_str)
+                print(f"[Drawing] {label}时长: {duration:.1f}s")
+            else:
+                print(f"[Drawing] {label}已保存（时长信息不可用）")
+        else:
+            print(f"[Drawing] {label}已保存（ffprobe 无法解析）")
+    except Exception as e:
+        print(f"[Drawing] {label}验证警告: {e}")
+
+
 @router.post("/{session_id}/drawing")
 async def submit_drawing(
     session_id: str,
@@ -35,10 +73,7 @@ async def submit_drawing(
     # 保存绘画
     if request.drawing_data:
         drawing_path = session_dir / "drawing.png"
-        # 移除 base64 前缀
-        drawing_data = request.drawing_data
-        if ',' in drawing_data:
-            drawing_data = drawing_data.split(',')[1]
+        drawing_data = _strip_base64_prefix(request.drawing_data)
         with open(drawing_path, 'wb') as f:
             f.write(base64.b64decode(drawing_data))
         session.drawing_image = str(drawing_path)
@@ -47,9 +82,7 @@ async def submit_drawing(
     # 保存摄像头视频
     if request.webcam_video:
         webcam_path = session_dir / "webcam.webm"
-        webcam_video = request.webcam_video
-        if ',' in webcam_video:
-            webcam_video = webcam_video.split(',')[1]
+        webcam_video = _strip_base64_prefix(request.webcam_video)
         video_data = base64.b64decode(webcam_video)
         with open(webcam_path, 'wb') as f:
             f.write(video_data)
@@ -57,32 +90,12 @@ async def submit_drawing(
         
         file_size_mb = len(video_data) / 1024 / 1024
         print(f"[Drawing] 摄像头视频已保存: {webcam_path}, 大小: {file_size_mb:.2f} MB")
-        
-        # 使用 ffprobe 验证视频
-        try:
-            result = subprocess.run(
-                ['ffprobe', '-v', 'error', '-show_entries', 
-                 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', str(webcam_path)],
-                capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                duration_str = result.stdout.strip()
-                if duration_str.upper() != 'N/A':
-                    duration = float(duration_str)
-                    print(f"[Drawing] 摄像头视频时长: {duration:.1f}s")
-                else:
-                    print(f"[Drawing] 摄像头视频已保存（时长信息不可用）")
-            else:
-                print(f"[Drawing] 摄像头视频已保存（ffprobe 无法解析）")
-        except Exception as e:
-            print(f"[Drawing] 摄像头视频验证警告: {e}")
+        _probe_video_duration(webcam_path, "摄像头视频")
     
     # 保存录屏
     if request.canvas_video:
         screen_path = session_dir / "screen.webm"
-        canvas_video = request.canvas_video
-        if ',' in canvas_video:
-            canvas_video = canvas_video.split(',')[1]
+        canvas_video = _strip_base64_prefix(request.canvas_video)
         video_data = base64.b64decode(canvas_video)
         with open(screen_path, 'wb') as f:
             f.write(video_data)
@@ -90,25 +103,7 @@ async def submit_drawing(
         
         file_size_mb = len(video_data) / 1024 / 1024
         print(f"[Drawing] 屏幕视频已保存: {screen_path}, 大小: {file_size_mb:.2f} MB")
-        
-        # 使用 ffprobe 验证视频
-        try:
-            result = subprocess.run(
-                ['ffprobe', '-v', 'error', '-show_entries', 
-                 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', str(screen_path)],
-                capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                duration_str = result.stdout.strip()
-                if duration_str.upper() != 'N/A':
-                    duration = float(duration_str)
-                    print(f"[Drawing] 屏幕视频时长: {duration:.1f}s")
-                else:
-                    print(f"[Drawing] 屏幕视频已保存（时长信息不可用）")
-            else:
-                print(f"[Drawing] 屏幕视频已保存（ffprobe 无法解析）")
-        except Exception as e:
-            print(f"[Drawing] 屏幕视频验证警告: {e}")
+        _probe_video_duration(screen_path, "屏幕视频")
     
     session.status = SessionStatus.ANALYZING
     session.save(SESSIONS_DIR)
@@ -171,14 +166,7 @@ async def analyze_drawing_task_stream(session_id: str):
         # 构建用户画像（用于知识片段选择）
         user_profile = None
         if session.age_group:
-            age_map = {
-                "under_7": 5,
-                "7_12": 10,
-                "13_18": 15,
-                "19_59": 30,
-                "60_plus": 70,
-            }
-            user_profile = {"age": age_map.get(session.age_group)}
+            user_profile = {"age": AGE_GROUP_MAP.get(session.age_group)}
 
         # 使用 run_in_executor 避免本地 VLM 的同步 generator 阻塞事件循环
         gen = llm.analyze_drawing_stream(
@@ -308,9 +296,6 @@ async def analyze_drawing_task_stream(session_id: str):
         session.save(SESSIONS_DIR)
         
         # ── 同步启动第二阶段（云端问答）和第三阶段（ComfyUI 预热）──
-        session.status = SessionStatus.CONVERSING
-        session.save(SESSIONS_DIR)
-        
         # 2a. 创建 InterviewAgent（使用云端 Kimi，纯文字问答）
         agent = InterviewAgent(session_id)
         agent.set_manager(manager)
@@ -320,14 +305,7 @@ async def analyze_drawing_task_stream(session_id: str):
         # 注入用户画像（年龄、文化背景），用于知识库动态筛选
         user_profile = {}
         if session.age_group:
-            # 将 age_group 字符串解析为大致年龄
-            age_map = {
-                "child_under_7": 5, "child_7_9": 8, "child_10_12": 11,
-                "teen_13_15": 14, "teen_16_18": 17,
-                "adult_19_35": 27, "adult_36_59": 47,
-                "senior_60_plus": 65
-            }
-            user_profile["age"] = age_map.get(session.age_group)
+            user_profile["age"] = AGE_GROUP_MAP.get(session.age_group)
         agent.set_user_profile(user_profile)
         
         interview_agents[session_id] = agent

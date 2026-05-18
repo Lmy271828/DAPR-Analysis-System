@@ -211,7 +211,8 @@ class ConnectionManager:
             try:
                 ws = self.subject_connections[session_id]
                 await ws.send_json(payload)
-            except Exception:
+            except Exception as e:
+                print(f"[WebSocket] 推送给受试者失败: session={session_id[:8]}..., type={payload.get('type')}, err={e}")
                 self.disconnect_subject(session_id)
 
     async def send_to_therapist(self, message: dict):
