@@ -491,18 +491,13 @@ class LocalVLMService:
                     duration = info.get("duration", 0)
                     original_total_frames = info.get("total_frames", int(duration * original_fps) if duration > 0 else 0)
 
-                    # 计算抽出的帧在原视频中的正确索引
-                    sampling_meta = VideoUtils.compute_sampling_meta(
-                        duration=duration,
-                        num_frames=len(frames),
-                        original_fps=original_fps,
-                        skip_head_tail=True,
-                    )
-                    frame_indices = sampling_meta["frame_indices"]
+                    # 传入 processor 的视频是已提取的帧序列（len=10），
+                    # frames_indices 应指向这 10 帧内部的索引，而非原视频索引
+                    frame_indices = list(range(len(frames)))
 
                     video_metadata_list.append(
                         VideoMetadata(
-                            total_num_frames=original_total_frames,
+                            total_num_frames=len(frames),  # 传入 processor 的是已提取帧
                             fps=original_fps,
                             width=frames[0].width,
                             height=frames[0].height,
@@ -528,19 +523,20 @@ class LocalVLMService:
         )
 
         # 构建 processor kwargs，传入像素预算限制（显存优化的核心）
+        # Qwen3VL processor 的 max_pixels 是顶层参数，不通过 images_kwargs/videos_kwargs
         processor_kwargs = {"return_tensors": "pt", "padding": True}
         if all_images:
             processor_kwargs["images"] = all_images
-            processor_kwargs["images_kwargs"] = {
-                "max_pixels": LOCAL_VLM_CONFIG.get("image_max_pixels", 1_000_000)
-            }
         if all_videos:
             processor_kwargs["videos"] = [all_videos]
-            processor_kwargs["videos_kwargs"] = {
-                "max_pixels": LOCAL_VLM_CONFIG.get("video_max_pixels", 2_000_000)
-            }
         if video_metadata_list:
             processor_kwargs["video_metadata"] = [video_metadata_list]
+
+        # 根据输入类型选择合适的 max_pixels
+        if all_videos:
+            processor_kwargs["max_pixels"] = LOCAL_VLM_CONFIG.get("video_max_pixels", 4_000_000)
+        elif all_images:
+            processor_kwargs["max_pixels"] = LOCAL_VLM_CONFIG.get("image_max_pixels", 1_000_000)
 
         inputs = self._processor(text=[text], **processor_kwargs).to(self._model.device)
 
