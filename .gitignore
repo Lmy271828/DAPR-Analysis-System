@@ -71,3 +71,21 @@ DAPR-agent/test_image_service.py
 node_modules/
 package-lock.json
 package.json
+
+# === 新增：生成物与二进制 ===
+*.pptx
+*.ppt
+*.webp
+*.whl
+
+# 根目录输出（当前未覆盖）
+/outputs/
+
+# benchmark 输出
+*/benchmark_plots/
+
+# 临时测试脚本
+test_fla_benchmark*.py
+
+# Windows 下载标记
+*.Zone.Identifier
